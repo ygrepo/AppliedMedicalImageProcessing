@@ -1,1 +1,2 @@
-# AppliedMedicalImageProcessing-
+# Applied Medical Image Processing
+JHU
