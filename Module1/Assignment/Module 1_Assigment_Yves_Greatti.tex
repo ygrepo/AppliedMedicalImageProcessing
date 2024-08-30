@@ -1,0 +1,146 @@
+\documentclass[12pt,twoside]{article}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,graphicx,amsmath,amsfonts,amscd,amssymb,mathrsfs, bm,cite,epsfig,epsf,url}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{amsthm,multirow,wasysym,appendix}
+\usepackage{array,subcaption} 
+% \usepackage[small,bf]{caption}
+\usepackage{bbm}
+\usepackage{pgfplots}
+\usetikzlibrary{spy}
+\usepgfplotslibrary{external}
+\usepgfplotslibrary{fillbetween}
+\usetikzlibrary{arrows,automata}
+\usepackage{thmtools}
+\usepackage{blkarray} 
+\usepackage{textcomp}
+\usepackage{float}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+
+
+\usepackage{times}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{latexsym}
+\usepackage{color}
+\usepackage{graphics}
+\usepackage{enumerate}
+\usepackage{amstext}
+\usepackage{blkarray}
+\usepackage{url}
+\usepackage{epsfig}
+\usepackage{bm}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+}
+\usepackage{textcomp}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+\usepackage{mathtools}
+%\usepackage{minted}
+\usepackage{gensymb}
+
+\input{macros}
+
+
+\begin{document}
+
+\noindent Dr. Ardekani\\
+EN.585.703.81.FA24 Applied Medical Image Processing\\
+Module 1 Assignment\\
+Johns Hopkins University\\
+Student: Yves Greatti\\\
+
+
+\section*{Question 1 - Given the following measure values for the X-ray projection (see Fig. 1):}
+\be
+    \item Use the algebraic reconstruction technique to estimate values of \( u_1, \ldots, u_9 \) (5 points). Show your work for full credit.\\
+    Since \( I_1 = u_1 + u_4 + u_7 = 12 \), and not knowing the distribution of \( u_1, u_4, \) and \( u_7 \), 
+    we can assume that the coefficients are equal to 4. Likewise, for \( I_2 = u_2 + u_5 + u_8 = 15 \): \( u_2=u_5=u_8=5 \); and  \( I_3 = u_3+ u_6 + u_9 = 18 \): \( u_3=u_6=u_9=6 \). \\
+  We now have:\\
+  \[
+\begin{array}{|c|c|c|}
+\hline
+4 & 5 & 6 \\
+\hline
+4 & 5 & 6 \\
+\hline
+4 & 5 & 6 \\
+\hline
+\end{array}
+\]
+However,  \( I_4 = u_1 + u_2+ u_3 = 6 \) but based on the current estimation, its value is 15 which is 9 more than what is supposed to be.  We take the difference and divide it by the number of elements in the row 
+which is 3 and we make a correction to \( u_1, u_2 \) and \(u_3\) by subtracting 3 from each to get $u_1=1$, $u_2=2$ and $u_3=3$. 
+$u_4 + u_5 + u_6 = 15$ which is the expected intensity $I_5$.  
+$u_7+ u_8 + u_9 = 15$ which is 9 less than $I_6=24$. We divide the difference by 3, the number of elements in this row and add 3 to $u_4; u_5 ; u_6 $.
+Their sum is $I_6$. The projection is:
+ \[
+\begin{array}{|c|c|c|}
+\hline
+1 & 2 & 3 \\
+\hline
+4 & 5 & 6 \\
+\hline
+7 & 8 & 9 \\
+\hline
+\end{array}
+\]
+Finally, $u_1+ u_5 + u_9 = 15$ which is $I_7$ but $u3 + u_5 + u_7 = 15$ which is 1 more than $I_8=14$. 
+We  divide this difference by 3, number of elements in the diagonal, and subtract $\frac{1}{3}$ to each element along this diagonal.
+
+\[
+\begin{array}{|c|c|c|}
+\hline
+1 & 2 &  \approx 2 .66\\
+\hline
+4 & \approx 4.66 & 6 \\
+\hline
+\approx 6.66 & 8 & 9 \\
+\hline
+\end{array}
+\]
+ \item What would you do if, after one iteration over all provided values, your sums are not equal to the measured values (2 points).
+ 
+ After one iteration over all provided values, if the sums are not equal to the measured values; we will keep iterating over all the measured values
+ using the same algorithm applied in question 1  and  stop the iterations if the values of the differences between the estimated sums and the measured values are below a given tolerance.
+ If all the differences in absolute values are within a given tolerance, we will stop the iterations.
+ 
+ \ee
+
+ \section*{Question 2 -Given a line \( I_{t, \theta} : I_{\frac{1}{2}, \frac{\pi}{6}} \):}   
+    \be
+        \item Write its equation in standard form \( (x(s), y(s)) \) (5 points) (show your work).
+        \begin{align*}
+   		 I_{\frac{1}{2}, \frac{\pi}{6}} &= (x(s), y(s)) \\
+    		&= \left\{ t \cos{\theta} - s \sin{\theta}, \; t \sin{\theta} + s \cos{\theta} \; \middle| \; t = \frac{1}{2}, \; \theta = \frac{\pi}{6}, \; s \in \mathbb{R} \right\} \\
+	        &= \left\{ \frac{1}{2} \cos{\frac{\pi}{6}} - s \sin{\frac{\pi}{6}}, \; \frac{1}{2} \sin{\frac{\pi}{6}} + s \cos{\frac{\pi}{6}} \; \middle| \; s \in \mathbb{R} \right\} \\
+    		&= \left\{ \frac{1}{2} \cdot \frac{\sqrt{3}}{2} - s \cdot \frac{1}{2}, \; \frac{1}{2} \cdot \frac{1}{2} + s \cdot \frac{\sqrt{3}}{2} \; \middle| \; s \in \mathbb{R} \right\} \\
+    		&= \left\{ \frac{\sqrt{3}}{4} - \frac{s}{2}, \; \frac{1}{4} + s \cdot \frac{\sqrt{3}}{2} \; \middle| \; s \in \mathbb{R} \right\} \\
+    		&= \left\{ \frac{1}{4} \left(\sqrt{3} - 2s\right), \; \frac{1}{4} \left(1 + 2\sqrt{3}s\right) \; \middle| \; s \in \mathbb{R} \right\}.
+	\end{align*}
+	
+	\item Find the values of \( s \) where this line intersects the unit circle (5 points). Show your work. 
+
+If \( P(x(s), y(s)) \) is on the line \( I_{\frac{1}{2}, \frac{\pi}{6}} \) and also on the unit circle, it must satisfy the equation of the circle:
+
+\begin{align*}
+    x(s)^2 + y(s)^2 &= 1, \\
+    \left(\frac{1}{4}\left(\sqrt{3} - 2s\right)\right)^2 + \left(\frac{1}{4}\left(1 + 2\sqrt{3}s\right)\right)^2 &= 1, \\
+    \left(\sqrt{3} - 2s\right)^2 + \left(1 + 2\sqrt{3}s\right)^2 &= 16, \\
+    (3 - 4\sqrt{3}s + 4s^2) + (1 + 4\sqrt{3}s + 12s^2) &= 16, \\
+    3 + 1 + 4s^2 + 12s^2 &= 16, \\
+    16s^2 + 4 &= 16, \\
+    16s^2 &= 12, \\
+    s^2 &= \frac{12}{16}, \\
+    s^2 &= \frac{3}{4}, \\
+    s &= \pm \frac{\sqrt{3}}{2}.
+\end{align*}
+
+\ee
+
+
+\end{document}
