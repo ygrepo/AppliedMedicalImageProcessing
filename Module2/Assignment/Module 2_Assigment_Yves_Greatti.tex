@@ -1,0 +1,164 @@
+\documentclass[12pt,twoside]{article}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,graphicx,amsmath,amsfonts,amscd,amssymb,mathrsfs, bm,cite,epsfig,epsf,url}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{amsthm,multirow,wasysym,appendix}
+\usepackage{array,subcaption} 
+% \usepackage[small,bf]{caption}
+\usepackage{bbm}
+\usepackage{pgfplots}
+\usetikzlibrary{spy}
+\usepgfplotslibrary{external}
+\usepgfplotslibrary{fillbetween}
+\usetikzlibrary{arrows,automata}
+\usepackage{thmtools}
+\usepackage{blkarray} 
+\usepackage{textcomp}
+\usepackage{float}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+
+
+\usepackage{times}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{latexsym}
+\usepackage{color}
+\usepackage{graphics}
+\usepackage{enumerate}
+\usepackage{amstext}
+\usepackage{blkarray}
+\usepackage{url}
+\usepackage{epsfig}
+\usepackage{bm}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+}
+\usepackage{textcomp}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+\usepackage{mathtools}
+%\usepackage{minted}
+\usepackage{gensymb}
+
+\input{macros}
+
+
+\begin{document}
+
+\noindent Dr. Ardekani\\
+EN.585.703.81.FA24 Applied Medical Image Processing\\
+Module 2 Assignment\\
+Johns Hopkins University\\
+Student: Yves Greatti\\\
+
+
+\section*{Question 1}
+ A convenient form of 2D Radon transform is to use the following equation:
+ \begin{equation}
+    \{ \mathcal{R} \rho \}(t, \theta) = \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x \cos \theta + y \sin \theta - t) dx dy
+  \end{equation}
+  
+  using this definition:
+    \begin{enumerate}
+        \item calculate $\{ \mathcal{R} \rho \}(t, 0)$ for $\rho(x, y) = \Pi\left(\frac{x}{a}\right)\Pi\left(\frac{y}{b}\right)$ (10 points), Where:
+        \[
+        \Pi(x) = 
+        \begin{cases} 
+        1, & \text{if } |x| < 1/2 \\ 
+        0, & \text{otherwise}
+        \end{cases}
+        \]
+        For $\theta=0$:
+	\begin{equation}
+            \{ \mathcal{R} \rho \}(t, 0) = \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x  - t) dx dy
+	\end{equation}
+
+	Since $ \int_{-\infty}^{+\infty}  \rho (x ,y) \delta(x  - t) dx =  \rho (t \; , y)$; then 
+	 \begin{align*}
+	 	 	\{ \mathcal{R} \rho \}(t, 0) &= \int_{-\infty}^{+\infty} \Pi(\frac{t}{a}) \Pi(\frac{y}{b}) \; dy \\
+			&= \Pi(\frac{t}{a}) \int_{-\infty}^{+\infty}  \Pi(\frac{y}{b}) \; dy \\
+			&= \Pi(\frac{t}{a}) \int_{-\frac{b}{2}}^{\frac{b}{2}} \; dy \\
+			&= \Pi(\frac{t}{a})  [ y ]_{-\frac{b}{2}}^{\frac{b}{2}}  \\
+			&= b \; \cdot  \Pi(\frac{t}{a})  
+	 \end{align*}
+
+        \item Calculate and compare the Fourier transform of $\{ \mathcal{R} \rho \}(t, 45^{\circ})$ for a square object defined by:
+        \[
+        \rho(x, y) = \Pi\left(\frac{x}{2}\right)\Pi\left(\frac{y}{2}\right)
+        \]
+        using direct approach and projection-slice theorem (20 points).
+        
+        In both [a] and [b] show your work.
+        
+        According to the projection-slice theorem:
+        \[
+        		\mathcal{F} \left(   \{ \mathcal{R} \rho \} \right) (t,  45^{\circ}) = \mathcal{F} \left( \mathcal{R} \rho  \right) (t, 45^{\circ})
+		%\int_{-\infty}^{+\infty} \Pi(\frac{t -s }{2}) \Pi(\frac{t + s }{2}) \; ds
+        \]
+        We make the change of variables from x and y to u and v.
+        With 
+        \[
+        \begin{bmatrix}
+		u \\
+		v
+	\end{bmatrix}
+	=
+	\begin{bmatrix}
+	\cos\theta & \sin\theta \\
+	-\sin\theta & \cos\theta
+	\end{bmatrix}
+        \]  $\Rightarrow$
+        \[
+        \begin{bmatrix}
+		x \\
+		y
+	\end{bmatrix}
+	=
+	\begin{bmatrix}
+	\cos\theta & -\sin\theta \\
+	\sin\theta & \cos\theta
+	\end{bmatrix}
+        \] 
+        With $\theta=45^{\circ}$
+        	 \begin{align*}
+	 	x &= \frac{u-v}{\sqrt{2}} \\
+	 	y &= \frac{u+v}{\sqrt{2}}
+	 \end{align*}
+	And
+\[
+\text{Jacobian} =
+\begin{vmatrix}
+\frac{\partial u}{\partial x} & \frac{\partial u}{\partial y} \\
+\frac{\partial v}{\partial x} & \frac{\partial v}{\partial y}
+\end{vmatrix}
+=
+\begin{vmatrix}
+\cos\theta & \sin\theta \\
+-\sin\theta & \cos\theta
+\end{vmatrix}
+= \cos\theta \cdot \cos\theta - (-\sin\theta) \cdot \sin\theta
+= \cos^2\theta + \sin^2\theta = 1
+\]
+
+\begin{align*}
+	\mathcal{R}f(t, 45^{\circ}) &= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \rho(x, y) \delta(x \cos(45^\circ) + y \sin(45^\circ) - t) \, dx \, dy \\
+	&= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{x}{2}\right) \Pi\left(\frac{y}{2}\right) \delta\left(x \cos(45^\circ) + y \sin(45^\circ) - t\right) \, dx \, dy \\
+	&= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{u-v}{2 \sqrt{2}}\right) \Pi\left(\frac{u+v}{2 \sqrt{2}}\right) \delta\left(t - u\right) \, du \, dv
+\end{align*}
+
+\begin{align*}
+\mathcal{R}f(t, 45^\circ) &= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{u-v}{2\sqrt{2}}\right) \Pi\left(\frac{u+v}{2\sqrt{2}}\right) \delta(t - u) \, du \, dv \\
+&= \int_{-\infty}^{\infty} \Pi\left(\frac{t-v}{2\sqrt{2}}\right) \Pi\left(\frac{t+v}{2\sqrt{2}}\right) \, dv \\
+&= \text{[Further steps to evaluate the integral based on the properties of the } \Pi \text{ function]}
+\end{align*}
+
+	
+
+    \end{enumerate}
+
+
+\end{document}
