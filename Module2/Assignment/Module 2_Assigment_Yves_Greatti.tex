@@ -94,12 +94,7 @@ Student: Yves Greatti\\\
         
         In both [a] and [b] show your work.
         
-        According to the projection-slice theorem:
-        \[
-        		\mathcal{F} \left(   \{ \mathcal{R} \rho \} \right) (t,  45^{\circ}) = \mathcal{F} \left( \mathcal{R} \rho  \right) (t, 45^{\circ})
-		%\int_{-\infty}^{+\infty} \Pi(\frac{t -s }{2}) \Pi(\frac{t + s }{2}) \; ds
-        \]
-        We make the change of variables from x and y to u and v.
+        Direct approach:  first  we make the change of variables from x and y to u and v.
         With 
         \[
         \begin{bmatrix}
@@ -281,7 +276,38 @@ The integral evaluates to
 \end{cases}
 \]
 
+According to the projection-slice theorem:
+\begin{align*}
+    \mathcal{F} \left( \{ \mathcal{R} \rho \} \right)(t,  45^{\circ}) &= \mathcal{F} \left( \mathcal{R} \rho  \right)(t, 45^{\circ}) \\
+    &= \mathcal{F} \left( \int_{-\infty}^{+\infty} \rho \left(t \cos{45^{\circ}} - s \sin {45^{\circ}}, t  \sin {45^{\circ}} + s \cos{45^{\circ}} \right) \; ds \right) \\
+    &= \mathcal{F} \left( \int_{-\infty}^{+\infty} \Pi\left(\frac{t - s}{2 \sqrt{2}}\right) \Pi\left(\frac{t + s}{2 \sqrt{2}}\right) \; ds \right)
+\end{align*}
+The last equation is the same as the one obtain at the bottom of page 2.
+
   \end{enumerate}
+\section*{Question 2}
+
+\noindent
+Use Matlab to illustrate the projection-slice theorem by loading an MRI data set that is provided by Mathworks (\texttt{load mri}). 
+We are working on slices 15 and 20 and angles 0 and 90 degrees (20 points).
+
+\begin{enumerate}
+    \item Perform the Radon transform on slice 15 using angles from 0 to 179 degrees (Matlab has a built-in function).
+    \item Perform a 1D Fourier transform on the Radon-transformed signal from slice 15 for angles 0 and 90 degrees.
+    \item Perform a 2D Fourier transform of slices 15 and 20.
+    \item Compare the direct and projection-slice Fourier transforms for the two angles using slice 15. 
+    For comparison, you can use the magnitude signals and plot them on top of each other.
+    Answer: looking at the two plots for angle 0 and 90 degrees; 
+    the blue and red lines overlap almost perfectly in the two plots. The direct 2D Fourier transform and the 1D Fourier transform of the Radon-transformed signals
+    are similar as stated by the projection-slice theorem.
+    \item Use the 1D Fourier transform on the Radon-transformed signal from slice 15 (for angles 0 and 90 degrees) and 
+    compare it with the projection-slice Fourier transform of slice 20 (using the same angles and magnitude signal). 
+    Plot the results and compare them with question 4.
+    Make sure your code is fully documented and can be executed without error.
+    Answer: 
+    The green and red lines overlap almost perfectly in both plots; showing both slices (15 and 20) have Fourier Transform magnitudes almost identical at 0 and 90 degrees.
+    This indicates that slices 15 and 20 share similar structural features and implies that the body scanned (head) has uniform spatial distribution along these angles.
+\end{enumerate}
 
 
 \end{document}
