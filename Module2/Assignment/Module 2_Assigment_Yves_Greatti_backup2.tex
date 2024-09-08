@@ -77,14 +77,14 @@ Student: Yves Greatti\\\
             \{ \mathcal{R} \rho \}(t, 0) = \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x  - t) dx dy
 	\end{equation}
 
-	Since $ \int_{-\infty}^{+\infty}  \rho (x ,y) \delta(x  - t) dx =  \rho (x \; , y)$; then 
+	Since $ \int_{-\infty}^{+\infty}  \rho (x ,y) \delta(x  - t) dx =  \rho (t \; , y)$; then 
 	 \begin{align*}
-	 	 	\{ \mathcal{R} \rho \}(t, 0) &= \int_{-\infty}^{+\infty}  \int_{-\infty}^{+\infty} \Pi(\frac{x}{a}) \Pi(\frac{y}{b}) \; dx \; dy \\
-			&=  \left( \int_{-\infty}^{+\infty}   \Pi(\frac{x}{a}) \; dx \right) \left( \int_{-\infty}^{+\infty}  \Pi(\frac{y}{b}) \; dy  \right)\\
-			&=  \left( \int_{-\frac{a}{2}}^{\frac{a}{2}}   \Pi(\frac{x}{a}) \; dx \right) \left(\int_{-\frac{b}{2}}^{\frac{b}{2}}  \Pi(\frac{y}{b}) \; dy  \right)\\
-			&= \left[ x\ \right]_{-\frac{a}{2}}^{\frac{a}{2}} \left[ x\ \right]_{-\frac{b}{2}}^{\frac{b}{2}} \\
-			&= a \; \cdot  b
-	\end{align*}
+	 	 	\{ \mathcal{R} \rho \}(t, 0) &= \int_{-\infty}^{+\infty} \Pi(\frac{t}{a}) \Pi(\frac{y}{b}) \; dy \\
+			&= \Pi(\frac{t}{a}) \int_{-\infty}^{+\infty}  \Pi(\frac{y}{b}) \; dy \\
+			&= \Pi(\frac{t}{a}) \int_{-\frac{b}{2}}^{\frac{b}{2}} \; dy \\
+			&= \Pi(\frac{t}{a})  [ y ]_{-\frac{b}{2}}^{\frac{b}{2}}  \\
+			&= b \; \cdot  \Pi(\frac{t}{a})  
+	 \end{align*}
 
         \item Calculate and compare the Fourier transform of $\{ \mathcal{R} \rho \}(t, 45^{\circ})$ for a square object defined by:
         \[
@@ -152,40 +152,87 @@ Therefore, the The 2D Fourier transform of $\rho(x,y)$  at \(45^\circ\) angle is
 \mathcal{F}\{\mathcal{R}\rho(t, 45^\circ)\}(k) = 4 \cdot  \text{sinc}^2\left(\sqrt{2} k\right) 
 \]
 
-We start first by calculating the Radon transform and then take its 1D Fourier transform:
+Using first the Radon transform and take its 1D Fourier transform:
 \[
-    \mathcal{F}\{ \mathcal{R} \rho \}(t, \theta) \}  =  \int_{-\infty}^{+\infty}  \left(  \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x \cos \theta + y \sin \theta - t) dx dy \right) e^{-i 2\pi k t} dt
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\infty}^{\infty} \rho(x \cos 45^\circ + y \sin 45^\circ, -x \sin 45^\circ + y \cos 45^\circ) \, dy
 \]
 
-For \(\theta = 45^\circ\), and since \(\rho(x, y)\) is non-zero and equals 1 only when both \(|x| \leq 1\) and \(|y| \leq 1\), the equation becomes:
+For $\theta = 45^\circ$, this simplifies to:
 
 \[
-\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) = \int_{-\infty}^{+\infty} \left( \int_{-1}^{1} \int_{-1}^{1} \delta(x \cos(45^\circ) + y \sin(45^\circ) - t) \, dx \, dy \right) e^{-i 2\pi k t} \, dt
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\infty}^{\infty} \rho\left(\frac{x + y}{\sqrt{2}}, \frac{y - x}{\sqrt{2}}\right) \, dy
 \]
 
-Swapping the order of integrals
+Substitute $x = t \cos(45^\circ)$ and  $y = t \sin(45^\circ)$,  where  $t = \frac{x+y}{\sqrt{2}}$. Since 
+$\rho(x, y)$  is non-zero only when both  $|x| \leq 1$ and $|y| \leq 1$, the bounds of the Radon transform become:
+
 \[
-\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) = \int_{-1}^{1} \int_{-1}^{1} \left( \int_{-\infty}^{+\infty}  \delta(x \cos(45^\circ) + y \sin(45^\circ) - t)  e^{-i 2\pi k t} \, dt \right) \, dx \, dy 
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\sqrt{2}}^{\sqrt{2}} \Pi \left(\frac{x+y}{\sqrt{2} \cdot 2}\right) \Pi \left(\frac{y-x}{\sqrt{2} \cdot 2}\right) dy
 \]
 
+$\Pi \left(\frac{x+y}{2 \sqrt{2}} \right) = 1$  if \(\left|\frac{x+y}{\sqrt{2}}\right| \leq 1 \) and 0 otherwise.
+$\Pi \left(\frac{y-x}{2 \sqrt{2}} \right) = 1$  if \(\left|\frac{y-x}{\sqrt{2}}\right| \leq 1 \) and 0 otherwise.
 
-Substitute $t= \frac{x+y}{\sqrt{2}}$:
-\begin{align*}
-\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) &= \int_{-1}^{1} \int_{-1}^{1}   e^{-i 2\pi k \left( \frac{x+y}{\sqrt{2}} \right)}   \, dx \, dy \\
- &=  \left( \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}} \right) x}   \, dx \right)  \left( \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}} \right) y}   \, dy \right) \\
-&=  \left( \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}}  \right) \; x}   \, dx \right)^2
-\end{align*}
-For  $\Pi\left(\frac{x}{2}\right)$; its Fourier transform is
-\begin{align*}
- \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}}  \right) \; x}  \; dx  = 2  \text{sinc}(2 \frac{k}{\sqrt{2}})
-  &= 2  \text{sinc}(\sqrt{2} k)
-\end{align*}
 
-Therefore
+For  $\frac{x+y}{\sqrt{2}}$:
+
 \[
-\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) =  4 \cdot  \text{sinc}^2\left(\sqrt{2} k\right) 
+-\sqrt{2} \leq x + y \leq \sqrt{2}
 \]
 
+Thus:
+\[
+-\sqrt{2} - x \leq y \leq \sqrt{2} - x
+\]
+
+For  $\frac{y-x}{\sqrt{2}}$:
+
+\[
+-\sqrt{2} \leq y - x \leq \sqrt{2}
+\]
+
+Thus:
+\[
+-\sqrt{2} + x \leq y \leq \sqrt{2} + x
+\]
+
+To integrate over y,  we must consider the intersection of these bounds:
+\[
+\max\left(-\sqrt{2} - x, -\sqrt{2} + x\right) \leq y \leq \min\left(\sqrt{2} - x, \sqrt{2} + x\right)
+\]
+which gives:
+\[
+-\sqrt{2} + |x| \leq y \leq \sqrt{2} - |x|
+\]
+
+Given this, we now perform the integration:
+\[
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\sqrt{2} + |t|}^{\sqrt{2} - |t|} dy
+\]
+
+The result is:
+
+\[
+\mathcal{R}\rho(t, 45^\circ) =2 ( \sqrt{2} - |t| )
+\]
+
+Next, we take the Fourier transform of the Radon transform:
+
+\[
+\mathcal{F}\{ \mathcal{R}\rho(t, 45^\circ) \}(k) = \int_{-\infty}^{\infty} \mathcal{R}\rho(t, 45^\circ) e^{-i2\pi kt} \, dt
+\]
+
+With the bounds \( |t| \leq \frac{\sqrt{2}}{2} \):
+
+\[
+\mathcal{F}\{ \mathcal{R}\rho(t, 45^\circ) \}(k) = 2 \int_{-\frac{\sqrt{2}}{2}}^{\frac{\sqrt{2}}{2}} \left(\sqrt{2} - |t|\right) e^{-i2\pi kt} \, dt
+\]
+
+After integrating, we got:
+
+\[
+\mathcal{F}\{ \mathcal{R}\rho(t, 45^\circ) \}(k) = 4 \cdot  \text{sinc}^2\left(\sqrt{2} k\right)
+\]
 
      \end{enumerate}
             
