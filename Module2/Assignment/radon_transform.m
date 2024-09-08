@@ -8,7 +8,7 @@ slice20 = D(:,:, 1, 20);
 % 1. Perform the Radon transform on slice 15 using angles from 0 to 170
 % degrees.
 angles = 0:179;
-[R15, xp] = radon(slice15, angles);
+[R15, ~] = radon(slice15, angles);
 [R20, xp] = radon(slice20, angles);
 
 % 2. Perform 1D Fourier transform on Radon-transformed signal
@@ -42,20 +42,23 @@ FT2DSlice20 = fftshift(fft2(slice20));
 % This central column contains the Fourier transform coefficients 
 % for the vertical direction (0 Degrees in the spatial domain).
 FT2D_Slice_15_0 = FT2DSlice15(:, size(FT2DSlice15, 2) / 2 + 1); 
+FT2D_Slice_20_0 = FT2DSlice20(:, size(FT2DSlice20, 2) / 2 + 1); 
 
 % Similarly, we extract Fourier transform coefficients of 
-% the central horizontal line from along the x-axis (90 Degrees)
+% the central horizontal line along the x-axis (90 Degrees)
 FT2D_Slice_15_90 = FT2DSlice15(size(FT2DSlice15, 1) / 2 + 1, :); 
+FT2D_Slice_20_90 = FT2DSlice20(size(FT2DSlice20, 1) / 2 + 1, :); 
 
 % Plot comparisons
 figure;
 
 % Comparison for 0 degrees
 subplot(1, 2, 1);
+plot(linspace(min(xp), max(xp), length(FT2D_Slice_15_0)),...
+abs(FT2D_Slice_15_0), 'b', 'LineWidth', 1.5, 'DisplayName', '2D FT');
+hold on;
 plot(xp, abs(FT1D_R15_0), 'r', 'LineWidth', 1.5, 'DisplayName', 'Radon FT');
 hold on;
-plot(linspace(min(xp), max(xp), length(FT2D_Slice_15_0)),...
-abs(FT2D_Slice_15_0), 'b--', 'LineWidth', 1.5, 'DisplayName', '2D FT');
 title('Fourier Transforms at 0 Degrees');
 xlabel('Frequency');
 ylabel('Magnitude');
@@ -64,22 +67,22 @@ grid on;
 
 % Comparison for 90 degrees
 subplot(1, 2, 2);
+plot(linspace(min(xp), max(xp), length(FT2D_Slice_15_90)),...
+    abs(FT2D_Slice_15_90), 'b', 'LineWidth', 1.5, 'DisplayName', '2D FT');
+hold on;
 plot(xp, abs(FT1D_R15_90), 'r', 'LineWidth', 1.5, 'DisplayName', 'Radon FT ');
 hold on;
-plot(linspace(min(xp), max(xp), length(FT2D_Slice_15_90)),...
-    abs(FT2D_Slice_15_90), 'b--', 'LineWidth', 1.5, 'DisplayName', '2D FT');
 title('Fourier Transforms at 90 Degrees');
 xlabel('Frequency');
 ylabel('Magnitude');
 legend;
 grid on;
 
-% We use the 1D Fourier transform on the Radon-transformed signal 
+% 5. We use the 1D Fourier transform on the Radon-transformed signal 
 % from slice 15 (for angles 0 and 90 degrees) and 
 % compare it with the projection-slice Fourier transform of slice 20
 % (using the same angles and magnitude signal). 
-% Plot the results and compare them with item
-
+% Plot the results and compare them with previous questions.
 
 % Plot comparisons
 figure;
@@ -88,7 +91,8 @@ figure;
 subplot(1, 2, 1);
 plot(xp, abs(FT1D_R15_0), 'r', 'LineWidth', 1.5, 'DisplayName', 'Radon FT at Slice 15');
 hold on;
-plot(xp, abs(FT1D_R20_0), 'g', 'LineWidth', 1.5, 'DisplayName', 'Radon FT at Slice 20');
+plot(linspace(min(xp), max(xp), length(FT2D_Slice_20_0)),...
+    abs(FT2D_Slice_20_0), 'g', 'LineWidth', 1.5, 'DisplayName', 'Radon FT at Slice 20');
 title('Fourier Transforms at 0 Degree of Radon-transformed Signals');
 xlabel('Frequency');
 ylabel('Magnitude');
@@ -99,7 +103,8 @@ grid on;
 subplot(1, 2, 2);
 plot(xp, abs(FT1D_R15_90), 'r', 'LineWidth', 1.5, 'DisplayName', 'Radon FT at Slice 15');
 hold on;
-plot(xp, abs(FT1D_R20_90), 'g', 'LineWidth', 1.5, 'DisplayName', 'Radon FT at Slice 20');
+plot(linspace(min(xp), max(xp), length(FT2D_Slice_20_90)),...
+    abs(FT2D_Slice_20_90), 'g', 'LineWidth', 1.5, 'DisplayName', 'Radon FT at Slice 20');
 title('Fourier Transforms at 90 Degrees of Radon-transformed Signals');
 xlabel('Frequency');
 ylabel('Magnitude');

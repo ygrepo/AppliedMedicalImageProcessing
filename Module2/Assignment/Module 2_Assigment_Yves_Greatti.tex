@@ -94,197 +94,148 @@ Student: Yves Greatti\\\
         
         In both [a] and [b] show your work.
         
-        Direct approach:  first  we make the change of variables from x and y to u and v.
-        With 
-        \[
-        \begin{bmatrix}
-		u \\
-		v
-	\end{bmatrix}
-	=
-	\begin{bmatrix}
-	\cos\theta & \sin\theta \\
-	-\sin\theta & \cos\theta
-	\end{bmatrix}   \begin{bmatrix}
-		x \\
-		y
-	\end{bmatrix}
-        \]  $\Rightarrow$
-        \[
-        \begin{bmatrix}
-		x \\
-		y
-	\end{bmatrix}
-	=
-	\begin{bmatrix}
-	\cos\theta & -\sin\theta \\
-	\sin\theta & \cos\theta
-	\end{bmatrix}   \begin{bmatrix}
-		u \\
-		v
-	\end{bmatrix}
-        \] 
-        With $\theta=45^{\circ}$
-        	 \begin{align*}
-	 	x &= \frac{u-v}{\sqrt{2}} \\
-	 	y &= \frac{u+v}{\sqrt{2}}
-	 \end{align*}
-	And
+        Direct approach:  
+     Given the function:
+
 \[
-\text{Jacobian} =
-\begin{vmatrix}
-\frac{\partial u}{\partial x} & \frac{\partial u}{\partial y} \\
-\frac{\partial v}{\partial x} & \frac{\partial v}{\partial y}
-\end{vmatrix}
-=
-\begin{vmatrix}
-\cos\theta & \sin\theta \\
--\sin\theta & \cos\theta
-\end{vmatrix}
-= \cos\theta \cdot \cos\theta - (-\sin\theta) \cdot \sin\theta
-= \cos^2\theta + \sin^2\theta = 1
+\rho(x,y) = \Pi\left(\frac{x}{2}\right)\Pi\left(\frac{y}{2}\right)
 \]
 
-\begin{align*}
-	\mathcal{R}f(t, 45^{\circ}) &= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \rho(x, y) \delta(x \cos(45^\circ) + y \sin(45^\circ) - t) \, dx \, dy \\
-	&= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{x}{2}\right) \Pi\left(\frac{y}{2}\right) \delta\left(x \cos(45^\circ) + y \sin(45^\circ) - t\right) \, dx \, dy \\
-	&= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{u-v}{2 \sqrt{2}}\right) \Pi\left(\frac{u+v}{2 \sqrt{2}}\right) \delta\left(t - u\right) \, du \, dv
-\end{align*}
+The 2D Fourier transform of $\rho(x,y)$ is defined as:
 
-\begin{align*}
-\mathcal{R}f(t, 45^\circ) &= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{u-v}{2\sqrt{2}}\right) \Pi\left(\frac{u+v}{2\sqrt{2}}\right) \delta(t - u) \, du \, dv \\
-&= \int_{-\infty}^{\infty} \Pi\left(\frac{t-v}{2\sqrt{2}}\right) \Pi\left(\frac{t+v}{2\sqrt{2}}\right) \, dv 
-\end{align*}
-For $ \Pi\left(\frac{t-v}{2\sqrt{2}}\right) $ to be 1:
 \[
-\left| \frac{t-v}{2\sqrt{2}} \right| < \frac{1}{2}
-\]
-$\Rightarrow$
-\begin{align*}
-\left| t-v \right| &< \sqrt{2} \\
--\sqrt{2} &< t - v < \sqrt{2} \\
-t - \sqrt{2} &< v < t + \sqrt{2}
-\end{align*}
-Similarly, for $ \Pi\left(\frac{t+v}{2\sqrt{2}}\right) $ to be 1:
-\[
-\left| \frac{t+v}{2\sqrt{2}} \right| < \frac{1}{2}
-\]
-This implies:
-\begin{align*}
-\left| t+v \right| &< \sqrt{2} \\
--\sqrt{2} &< t + v < \sqrt{2} \\
- - \left( t + \sqrt{2} \right) &< v <  - \left( t - \sqrt{2} \right) 
-\end{align*}
-We are interested in finding the values of v where both intervals; $\left[t - \sqrt{2}  , t + \sqrt{2} \right]$ and $\left[- (t + \sqrt{2})  , - (t - \sqrt{2}) \right]$ overlap.
-For the intersection to be non-empty, v  must satisfy:
-\begin{align*}
-v &> \max(t -  \sqrt{2} , -(t +  \sqrt{2} )) \\
-v &< \min(t +  \sqrt{2} , -(t -  \sqrt{2} ))
-\end{align*}
-
-
-\textbf{Case 1: } \( t - \sqrt{2} \geq -(t + \sqrt{2}) \)
-
-In this case, \( \max(t - \sqrt{2}, -(t + \sqrt{2})) = t - \sqrt{2} \).
-
-We need:
-\[
-t - \sqrt{2} \leq \min(t + \sqrt{2}, -(t - \sqrt{2}))
+\mathcal{F}\{\rho(x,y)\}(k_x, k_y) = \int_{-\infty}^{\infty}\int_{-\infty}^{\infty} \rho(x,y) e^{-i 2\pi(k_x x + k_y y)} dx\, dy
 \]
 
-We have two sub-cases :
+Since $\rho(x,y)$ is non-zero only within the bounds $-1 \leq x \leq 1$ and $-1 \leq y \leq 1$, the integral reduces to:
 
-\begin{itemize}
-    \item If \( t + \sqrt{2} \leq -(t - \sqrt{2}) \):
-    \[
-    t - \sqrt{2} \leq t + \sqrt{2} \quad \text{(always verified)}
-    \]
-   We also need:
-    \[
-    t + \sqrt{2} \leq -(t - \sqrt{2})
-    \]
-    Simplifying this:
-    \[
-    t + \sqrt{2} \leq -t + \sqrt{2}
-    \]
-    \[
-    2t \leq 0 \quad \Rightarrow \quad t \leq 0
-    \]
-
-    \item If \( -(t - \sqrt{2}) \leq t + \sqrt{2} \):
-    \[
-    t - \sqrt{2} \leq -(t - \sqrt{2})
-    \]
-    Simplifying this:
-    \[
-    2t \leq 2\sqrt{2} \quad \Rightarrow \quad t \leq \sqrt{2}
-    \]
-\end{itemize}
-
-So from Case 1, \( t \) must satisfy \( 0 \leq t \leq \sqrt{2} \).
-
-\textbf{Case 2: } \( t - \sqrt{2} < -(t + \sqrt{2}) \)
-
-In this case, \( \max(t - \sqrt{2}, -(t + \sqrt{2})) = -(t + \sqrt{2}) \).
-
-We need:
 \[
--(t + \sqrt{2}) \leq \min(t + \sqrt{2}, -(t - \sqrt{2}))
+\mathcal{F}\{\rho(x,y)\}(k_x, k_y) = \int_{-1}^{1} \int_{-1}^{1} e^{-i 2\pi(k_x x + k_y y)} dx\, dy
 \]
 
-Again, two sub-cases:
+We can separate the integral into the product of two 1D Fourier transforms:
 
-\begin{itemize}
-    \item If \( t + \sqrt{2} \leq -(t - \sqrt{2}) \):
-    \[
-    -(t + \sqrt{2}) \leq t + \sqrt{2}
-    \]
-    Simplifying:
-    \[
-    -2t \leq 2\sqrt{2} \quad \Rightarrow \quad t \geq -\sqrt{2}
-    \]
-
-    \item If \( -(t - \sqrt{2}) \leq t + \sqrt{2} \):
-    \[
-    -(t + \sqrt{2}) \leq -(t - \sqrt{2})
-    \]
-    Simplifying:
-    \[
-    -2\sqrt{2} \leq 0 \quad \text{(which is always true)}
-    \]
-\end{itemize}
-
-So from Case 2, \( t \) must satisfy \( t \geq -\sqrt{2} \).
-\[\]
-The conditions from the cases give us that t must satisfy: $- \sqrt{2}  \leq  t  \leq  \sqrt{2} $.
-
-For $t \in \left[ - \sqrt{2},  \sqrt{2} \right]$, the integrand is 1 over the interval where both $\Pi$ functions are 1, which occurs when 
-$ -2 \sqrt{2}  \leq  v  \leq  2 \sqrt{2}$. Therefore, the integral is:
 \[
-	 \int_{-2 \sqrt{2}}^{2 \sqrt{2}} dv  = 4 \sqrt{2}
+\mathcal{F}\{\rho(x,y)\}(k_x, k_y) = \left(\int_{-1}^{1} e^{-i 2\pi k_x x} dx\right) \left(\int_{-1}^{1} e^{-i 2\pi k_y y} dy\right)
 \]
 
-For $|t| > \sqrt{2}$, the integral is 0  because the intervals do not overlap.
+Each of these integrals is a Fourier transform of the rectangular function:
 
-The integral evaluates to
 \[
-\mathcal{R}f(t, 45^{\circ})  =
- \int_{-\infty}^{\infty} \Pi\left(\frac{t-v}{2\sqrt{2}}\right) \Pi\left(\frac{t+v}{2\sqrt{2}}\right) \, dv  =
-\begin{cases}
-     4 \sqrt{2}, & \text{if } |t| \leq \sqrt{2}, \\
-    0 & \text{otherwise}.
-\end{cases}
+\int_{-1}^{1} e^{-i 2\pi k x} dx = \frac{\sin(2\pi k)}{\pi k} = 2 \cdot \text{sinc}(2k)
+\]
+with 
+\[
+ \text{sinc}(k) = \frac{\sin(\pi k)}{\pi k}
 \]
 
-According to the projection-slice theorem:
-\begin{align*}
-    \mathcal{F} \left( \{ \mathcal{R} \rho \} \right)(t,  45^{\circ}) &= \mathcal{F} \left( \mathcal{R} \rho  \right)(t, 45^{\circ}) \\
-    &= \mathcal{F} \left( \int_{-\infty}^{+\infty} \rho \left(t \cos{45^{\circ}} - s \sin {45^{\circ}}, t  \sin {45^{\circ}} + s \cos{45^{\circ}} \right) \; ds \right) \\
-    &= \mathcal{F} \left( \int_{-\infty}^{+\infty} \Pi\left(\frac{t - s}{2 \sqrt{2}}\right) \Pi\left(\frac{t + s}{2 \sqrt{2}}\right) \; ds \right)
-\end{align*}
-The last equation is the same as the one obtain at the bottom of page 2.
+To apply the Projection-Slice Theorem, we want to evaluate the 2D Fourier transform along the line \( k_x = k_y = \frac{k}{\sqrt{2}} \), corresponding to the \(45^\circ\) angle.
 
-  \end{enumerate}
+
+Substituting \( k_x = \frac{k}{\sqrt{2}} \) and \( k_y = \frac{k}{\sqrt{2}} \) into the Fourier transform expression:
+
+\[
+\mathcal{F}\{\rho(x, y)\}\left(\frac{k}{\sqrt{2}}, \frac{k}{\sqrt{2}}\right) = 4 \cdot \text{sinc}\left(2 \cdot \frac{k}{\sqrt{2}}\right) \cdot \text{sinc}\left(2 \cdot \frac{k}{\sqrt{2}}\right)
+\]
+
+Simplifying the arguments of the sinc functions:
+
+The expression becomes:
+
+\[
+\mathcal{F}\{\rho(x, y)\}(k_x, k_y) = 4 \cdot \text{sinc}\left(\sqrt{2} k\right) \cdot \text{sinc}\left(\sqrt{2} k\right)
+\]
+
+Therefore, the The 2D Fourier transform of $\rho(x,y)$  at \(45^\circ\) angle is:
+
+\[
+\mathcal{F}\{\mathcal{R}\rho(t, 45^\circ)\}(k) = 4 \cdot  \text{sinc}^2\left(\sqrt{2} k\right) 
+\]
+
+Using first the Radon transform and take its 1D Fourier transform:
+\[
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\infty}^{\infty} \rho(x \cos 45^\circ + y \sin 45^\circ, -x \sin 45^\circ + y \cos 45^\circ) \, dy
+\]
+
+For $\theta = 45^\circ$, this simplifies to:
+
+\[
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\infty}^{\infty} \rho\left(\frac{x + y}{\sqrt{2}}, \frac{y - x}{\sqrt{2}}\right) \, dy
+\]
+
+Substitute $x = t \cos(45^\circ)$ and  $y = t \sin(45^\circ)$,  where  $t = \frac{x+y}{\sqrt{2}}$. Since 
+$\rho(x, y)$  is non-zero only when both  $|x| \leq 1$ and $|y| \leq 1$, the bounds of the Radon transform become:
+
+\[
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\sqrt{2}}^{\sqrt{2}} \Pi \left(\frac{x+y}{\sqrt{2} \cdot 2}\right) \Pi \left(\frac{y-x}{\sqrt{2} \cdot 2}\right) dy
+\]
+
+$\Pi \left(\frac{x+y}{2 \sqrt{2}} \right) = 1$  if \(\left|\frac{x+y}{\sqrt{2}}\right| \leq 1 \) and 0 otherwise.
+$\Pi \left(\frac{y-x}{2 \sqrt{2}} \right) = 1$  if \(\left|\frac{y-x}{\sqrt{2}}\right| \leq 1 \) and 0 otherwise.
+
+
+For  $\frac{x+y}{\sqrt{2}}$:
+
+\[
+-\sqrt{2} \leq x + y \leq \sqrt{2}
+\]
+
+Thus:
+\[
+-\sqrt{2} - x \leq y \leq \sqrt{2} - x
+\]
+
+For  $\frac{y-x}{\sqrt{2}}$:
+
+\[
+-\sqrt{2} \leq y - x \leq \sqrt{2}
+\]
+
+Thus:
+\[
+-\sqrt{2} + x \leq y \leq \sqrt{2} + x
+\]
+
+To integrate over y,  we must consider the intersection of these bounds:
+\[
+\max\left(-\sqrt{2} - x, -\sqrt{2} + x\right) \leq y \leq \min\left(\sqrt{2} - x, \sqrt{2} + x\right)
+\]
+which gives:
+\[
+-\sqrt{2} + |x| \leq y \leq \sqrt{2} - |x|
+\]
+
+Given this, we now perform the integration:
+\[
+\mathcal{R}\rho(t, 45^\circ) = \int_{-\sqrt{2} + |t|}^{\sqrt{2} - |t|} dy
+\]
+
+The result is:
+
+\[
+\mathcal{R}\rho(t, 45^\circ) =2 ( \sqrt{2} - |t| )
+\]
+
+Next, we take the Fourier transform of the Radon transform:
+
+\[
+\mathcal{F}\{ \mathcal{R}\rho(t, 45^\circ) \}(k) = \int_{-\infty}^{\infty} \mathcal{R}\rho(t, 45^\circ) e^{-i2\pi kt} \, dt
+\]
+
+With the bounds \( |t| \leq \frac{\sqrt{2}}{2} \):
+
+\[
+\mathcal{F}\{ \mathcal{R}\rho(t, 45^\circ) \}(k) = 2 \int_{-\frac{\sqrt{2}}{2}}^{\frac{\sqrt{2}}{2}} \left(\sqrt{2} - |t|\right) e^{-i2\pi kt} \, dt
+\]
+
+After integrating, we got:
+
+\[
+\mathcal{F}\{ \mathcal{R}\rho(t, 45^\circ) \}(k) = 4 \cdot  \text{sinc}^2\left(\sqrt{2} k\right)
+\]
+
+     \end{enumerate}
+            
 \section*{Question 2}
 
 \noindent
@@ -296,18 +247,31 @@ We are working on slices 15 and 20 and angles 0 and 90 degrees (20 points).
     \item Perform a 1D Fourier transform on the Radon-transformed signal from slice 15 for angles 0 and 90 degrees.
     \item Perform a 2D Fourier transform of slices 15 and 20.
     \item Compare the direct and projection-slice Fourier transforms for the two angles using slice 15. 
-    For comparison, you can use the magnitude signals and plot them on top of each other.
-    Answer: looking at the two plots for angle 0 and 90 degrees; 
+    For comparison, you can use the magnitude signals and plot them on top of each other.\\
+    Answer: Looking at the two plots for angle 0 and 90 degrees; 
     the blue and red lines overlap almost perfectly in the two plots. The direct 2D Fourier transform and the 1D Fourier transform of the Radon-transformed signals
     are similar as stated by the projection-slice theorem.
+     \begin{figure}[H]
+    \centering
+    \captionsetup{justification=raggedright,singlelinecheck=false}
+    \includegraphics[width=400pt]{fig1.png}
+    \caption{Direct and projection-slice Fourier transforms  at 0 and 90 degrees using slice 15}
+    \label{fig1}
+     \end{figure}
+    	
     \item Use the 1D Fourier transform on the Radon-transformed signal from slice 15 (for angles 0 and 90 degrees) and 
     compare it with the projection-slice Fourier transform of slice 20 (using the same angles and magnitude signal). 
     Plot the results and compare them with question 4.
-    Make sure your code is fully documented and can be executed without error.
-    Answer: 
-    The green and red lines overlap almost perfectly in both plots; showing both slices (15 and 20) have Fourier Transform magnitudes almost identical at 0 and 90 degrees.
-    This indicates that slices 15 and 20 share similar structural features and implies that the body scanned (head) has uniform spatial distribution along these angles.
-\end{enumerate}
-
+    Make sure your code is fully documented and can be executed without error.\\
+    Answer: The green and red lines do not quite overlap  compared to the previous question.
+    They are the amplitude plots of  projection-slice Fourier transforms of different slices and we can expect differences in the amplitude of the signals.
+    \begin{figure}[H]
+    \centering
+    \captionsetup{justification=raggedright,singlelinecheck=false}
+    \includegraphics[width=400pt]{fig2.png}
+    \caption{Projection-slice Fourier transforms at 0 and 90 degrees using slice 15 and 20}
+    \label{fig2}
+     \end{figure}
+    \end{enumerate}
 
 \end{document}

@@ -1,0 +1,320 @@
+\documentclass[12pt,twoside]{article}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,graphicx,amsmath,amsfonts,amscd,amssymb,mathrsfs, bm,cite,epsfig,epsf,url}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{amsthm,multirow,wasysym,appendix}
+\usepackage{array,subcaption} 
+% \usepackage[small,bf]{caption}
+\usepackage{bbm}
+\usepackage{pgfplots}
+\usetikzlibrary{spy}
+\usepgfplotslibrary{external}
+\usepgfplotslibrary{fillbetween}
+\usetikzlibrary{arrows,automata}
+\usepackage{thmtools}
+\usepackage{blkarray} 
+\usepackage{textcomp}
+\usepackage{float}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+
+
+\usepackage{times}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{latexsym}
+\usepackage{color}
+\usepackage{graphics}
+\usepackage{enumerate}
+\usepackage{amstext}
+\usepackage{blkarray}
+\usepackage{url}
+\usepackage{epsfig}
+\usepackage{bm}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+}
+\usepackage{textcomp}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+\usepackage{mathtools}
+%\usepackage{minted}
+\usepackage{gensymb}
+
+\input{macros}
+
+
+\begin{document}
+
+\noindent Dr. Ardekani\\
+EN.585.703.81.FA24 Applied Medical Image Processing\\
+Module 2 Assignment\\
+Johns Hopkins University\\
+Student: Yves Greatti\\\
+
+
+\section*{Question 1}
+ A convenient form of 2D Radon transform is to use the following equation:
+ \begin{equation}
+    \{ \mathcal{R} \rho \}(t, \theta) = \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x \cos \theta + y \sin \theta - t) dx dy
+  \end{equation}
+  
+  using this definition:
+    \begin{enumerate}
+        \item calculate $\{ \mathcal{R} \rho \}(t, 0)$ for $\rho(x, y) = \Pi\left(\frac{x}{a}\right)\Pi\left(\frac{y}{b}\right)$ (10 points), Where:
+        \[
+        \Pi(x) = 
+        \begin{cases} 
+        1, & \text{if } |x| < 1/2 \\ 
+        0, & \text{otherwise}
+        \end{cases}
+        \]
+        For $\theta=0$:
+	\begin{equation}
+            \{ \mathcal{R} \rho \}(t, 0) = \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x  - t) dx dy
+	\end{equation}
+
+	Since $ \int_{-\infty}^{+\infty}  \rho (x ,y) \delta(x  - t) dx =  \rho (t \; , y)$; then 
+	 \begin{align*}
+	 	 	\{ \mathcal{R} \rho \}(t, 0) &= \int_{-\infty}^{+\infty} \Pi(\frac{t}{a}) \Pi(\frac{y}{b}) \; dy \\
+			&= \Pi(\frac{t}{a}) \int_{-\infty}^{+\infty}  \Pi(\frac{y}{b}) \; dy \\
+			&= \Pi(\frac{t}{a}) \int_{-\frac{b}{2}}^{\frac{b}{2}} \; dy \\
+			&= \Pi(\frac{t}{a})  [ y ]_{-\frac{b}{2}}^{\frac{b}{2}}  \\
+			&= b \; \cdot  \Pi(\frac{t}{a})  
+	 \end{align*}
+
+        \item Calculate and compare the Fourier transform of $\{ \mathcal{R} \rho \}(t, 45^{\circ})$ for a square object defined by:
+        \[
+        \rho(x, y) = \Pi\left(\frac{x}{2}\right)\Pi\left(\frac{y}{2}\right)
+        \]
+        using direct approach and projection-slice theorem (20 points).
+        
+        In both [a] and [b] show your work.
+        
+        Direct approach:  first  we make the change of variables from x and y to u and v.
+        With 
+        \[
+        \begin{bmatrix}
+		u \\
+		v
+	\end{bmatrix}
+	=
+	\begin{bmatrix}
+	\cos\theta & \sin\theta \\
+	-\sin\theta & \cos\theta
+	\end{bmatrix}   \begin{bmatrix}
+		x \\
+		y
+	\end{bmatrix}
+        \]  $\Rightarrow$
+        \[
+        \begin{bmatrix}
+		x \\
+		y
+	\end{bmatrix}
+	=
+	\begin{bmatrix}
+	\cos\theta & -\sin\theta \\
+	\sin\theta & \cos\theta
+	\end{bmatrix}   \begin{bmatrix}
+		u \\
+		v
+	\end{bmatrix}
+        \] 
+        With $\theta=45^{\circ}$
+        	 \begin{align*}
+	 	x &= \frac{u-v}{\sqrt{2}} \\
+	 	y &= \frac{u+v}{\sqrt{2}}
+	 \end{align*}
+	And
+\[
+\text{Jacobian} =
+\begin{vmatrix}
+\frac{\partial u}{\partial x} & \frac{\partial u}{\partial y} \\
+\frac{\partial v}{\partial x} & \frac{\partial v}{\partial y}
+\end{vmatrix}
+=
+\begin{vmatrix}
+\cos\theta & \sin\theta \\
+-\sin\theta & \cos\theta
+\end{vmatrix}
+= \cos\theta \cdot \cos\theta - (-\sin\theta) \cdot \sin\theta
+= \cos^2\theta + \sin^2\theta = 1
+\]
+
+\begin{align*}
+	\mathcal{R}f(t, 45^{\circ}) &= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \rho(x, y) \delta(x \cos(45^\circ) + y \sin(45^\circ) - t) \, dx \, dy \\
+	&= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{x}{2}\right) \Pi\left(\frac{y}{2}\right) \delta\left(x \cos(45^\circ) + y \sin(45^\circ) - t\right) \, dx \, dy \\
+	&= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{u-v}{2 \sqrt{2}}\right) \Pi\left(\frac{u+v}{2 \sqrt{2}}\right) \delta\left(t - u\right) \, du \, dv
+\end{align*}
+
+\begin{align*}
+\mathcal{R}f(t, 45^\circ) &= \int_{-\infty}^{\infty} \int_{-\infty}^{\infty} \Pi\left(\frac{u-v}{2\sqrt{2}}\right) \Pi\left(\frac{u+v}{2\sqrt{2}}\right) \delta(t - u) \, du \, dv \\
+&= \int_{-\infty}^{\infty} \Pi\left(\frac{t-v}{2\sqrt{2}}\right) \Pi\left(\frac{t+v}{2\sqrt{2}}\right) \, dv 
+\end{align*}
+For $ \Pi\left(\frac{t-v}{2\sqrt{2}}\right) $ to be 1:
+\[
+\left| \frac{t-v}{2\sqrt{2}} \right| < \frac{1}{2}
+\]
+$\Rightarrow$
+\begin{align*}
+\left| t-v \right| &< \sqrt{2} \\
+-\sqrt{2} &< t - v < \sqrt{2} \\
+t - \sqrt{2} &< v < t + \sqrt{2}
+\end{align*}
+Similarly, for $ \Pi\left(\frac{t+v}{2\sqrt{2}}\right) $ to be 1:
+\[
+\left| \frac{t+v}{2\sqrt{2}} \right| < \frac{1}{2}
+\]
+This implies:
+\begin{align*}
+\left| t+v \right| &< \sqrt{2} \\
+-\sqrt{2} &< t + v < \sqrt{2} \\
+ - \left( t + \sqrt{2} \right) &< v <  - \left( t - \sqrt{2} \right) 
+\end{align*}
+We are interested in finding the values of v where both intervals; $\left[t - \sqrt{2}  , t + \sqrt{2} \right]$ and $\left[- (t + \sqrt{2})  , - (t - \sqrt{2}) \right]$ overlap.
+For the intersection to be non-empty, v  must satisfy:
+\begin{align*}
+v &\geq  \max(t -  \sqrt{2} , -(t +  \sqrt{2} )) \\
+v &\leq \min(t +  \sqrt{2} , -(t -  \sqrt{2} ))
+\end{align*}
+
+
+\textbf{Case 1: } \( t - \sqrt{2} \geq -(t + \sqrt{2}) \)
+
+In this case, \( \max(t - \sqrt{2}, -(t + \sqrt{2})) = t - \sqrt{2} \).
+
+We need:
+\[
+t - \sqrt{2} \leq \min(t + \sqrt{2}, -(t - \sqrt{2}))
+\]
+ \[
+    t - \sqrt{2} \leq t + \sqrt{2} \quad \text{(always verified)}
+\]
+  We also need:
+    \[
+    t - \sqrt{2} \leq -(t - \sqrt{2})
+  \]
+    Simplifying this:
+    \[
+    2t \leq 2\sqrt{2} \quad \Rightarrow \quad t \leq \sqrt{2}
+    \]
+  
+We have two sub-cases :
+
+\begin{itemize}
+    \item If \( t + \sqrt{2} \leq -(t - \sqrt{2}) \):
+    Simplifying this:
+    \[
+    t + \sqrt{2} \leq -t + \sqrt{2}
+    \]
+    \[
+    2t \leq 0 \quad \Rightarrow \quad t \leq 0
+    \]
+
+    \item If \( -(t - \sqrt{2}) \leq t + \sqrt{2} \):
+    Simplifying this:
+    \[
+    - t + \sqrt{2} \leq t + \sqrt{2}
+    \]
+    \[
+    -2t \leq 0 \quad \Rightarrow \quad t \geq 0
+    \]
+\end{itemize}
+
+When  \( 0 \leq t \leq \sqrt{2} \Rightarrow \)\( \max(t - \sqrt{2}, -(t + \sqrt{2})) = t - \sqrt{2} \).
+So from Case 1, \( t \) must satisfy \( 0 \leq t \leq \sqrt{2} \).
+
+\textbf{Case 2: } \( t - \sqrt{2} \leq -(t + \sqrt{2}) \)
+
+In this case, \( \max(t - \sqrt{2}, -(t + \sqrt{2})) = -(t + \sqrt{2}) \) and \( t \leq 0 \).
+
+We need:
+\[
+-(t + \sqrt{2}) \leq \min(t + \sqrt{2}, -(t - \sqrt{2}))
+\]
+
+
+Again, two sub-cases:
+
+\begin{itemize}
+    \item If \( t + \sqrt{2} \leq -(t - \sqrt{2}) \):
+    \[
+    -(t + \sqrt{2}) \leq t + \sqrt{2}
+    \]
+    Simplifying:
+    \[
+    -2t \leq 2\sqrt{2} \quad \Rightarrow \quad t \geq -\sqrt{2}
+    \]
+
+    \item If \( -(t - \sqrt{2}) \leq t + \sqrt{2} \):
+    \[
+    -(t + \sqrt{2}) \leq -(t - \sqrt{2})
+    \]
+    Simplifying:
+    \[
+    -2\sqrt{2} \leq 0 \quad \text{(which is always true)}
+    \]
+\end{itemize}
+
+So from Case 2, \( t \) must satisfy \( -\sqrt{2}  \leq t \leq 0\).
+\[\]
+The conditions from the cases give us that t must satisfy: $- \sqrt{2}  \leq  t  \leq  \sqrt{2} $.
+
+For $t \in \left[ - \sqrt{2},  \sqrt{2} \right]$, the integrand is 1 over the interval where both $\Pi$ functions are 1, which occurs when 
+$ -2 \sqrt{2}  \leq  v  \leq  2 \sqrt{2}$. Therefore, the integral is:
+\[
+	 \int_{-2 \sqrt{2}}^{2 \sqrt{2}} dv  = 4 \sqrt{2}
+\]
+
+For $|t| > \sqrt{2}$, the integral is 0  because the intervals do not overlap.
+
+The integral evaluates to
+\[
+\mathcal{R}f(t, 45^{\circ})  =
+ \int_{-\infty}^{\infty} \Pi\left(\frac{t-v}{2\sqrt{2}}\right) \Pi\left(\frac{t+v}{2\sqrt{2}}\right) \, dv  =
+\begin{cases}
+     4 \sqrt{2}, & \text{if } |t| \leq \sqrt{2}, \\
+    0 & \text{otherwise}.
+\end{cases}
+\]
+
+According to the projection-slice theorem:
+\begin{align*}
+    \mathcal{F} \left( \{ \mathcal{R} \rho \} \right)(t,  45^{\circ}) &= \mathcal{F} \left( \mathcal{R} \rho  \right)(t, 45^{\circ}) \\
+    &= \mathcal{F} \left( \int_{-\infty}^{+\infty} \rho \left(t \cos{45^{\circ}} - s \sin {45^{\circ}}, t  \sin {45^{\circ}} + s \cos{45^{\circ}} \right) \; ds \right) \\
+    &= \mathcal{F} \left( \int_{-\infty}^{+\infty} \Pi\left(\frac{t - s}{2 \sqrt{2}}\right) \Pi\left(\frac{t + s}{2 \sqrt{2}}\right) \; ds \right)
+\end{align*}
+The last equation is the same as the one obtain at the bottom of page 2.
+
+  \end{enumerate}
+\section*{Question 2}
+
+\noindent
+Use Matlab to illustrate the projection-slice theorem by loading an MRI data set that is provided by Mathworks (\texttt{load mri}). 
+We are working on slices 15 and 20 and angles 0 and 90 degrees (20 points).
+
+\begin{enumerate}
+    \item Perform the Radon transform on slice 15 using angles from 0 to 179 degrees (Matlab has a built-in function).
+    \item Perform a 1D Fourier transform on the Radon-transformed signal from slice 15 for angles 0 and 90 degrees.
+    \item Perform a 2D Fourier transform of slices 15 and 20.
+    \item Compare the direct and projection-slice Fourier transforms for the two angles using slice 15. 
+    For comparison, you can use the magnitude signals and plot them on top of each other.
+    Answer: Looking at the two plots for angle 0 and 90 degrees; 
+    the blue and red lines overlap almost perfectly in the two plots. The direct 2D Fourier transform and the 1D Fourier transform of the Radon-transformed signals
+    are similar as stated by the projection-slice theorem.
+    \item Use the 1D Fourier transform on the Radon-transformed signal from slice 15 (for angles 0 and 90 degrees) and 
+    compare it with the projection-slice Fourier transform of slice 20 (using the same angles and magnitude signal). 
+    Plot the results and compare them with question 4.
+    Make sure your code is fully documented and can be executed without error.
+    Answer: 
+    The green and red lines overlap almost perfectly in both plots; showing both slices (15 and 20) have Fourier Transform magnitudes almost identical at 0 and 90 degrees.
+    This indicates that slices 15 and 20 share similar structural features and implies that the body scanned (head) has similar spatial distribution along these angles.
+    These plots are also almost identical to the ones obtained in question 4 as supported by the projection-slice theorem.
+\end{enumerate}
+
+
+\end{document}
