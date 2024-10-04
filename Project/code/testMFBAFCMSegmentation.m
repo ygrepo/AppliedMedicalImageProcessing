@@ -21,11 +21,11 @@ img = imread('mri.tif'); % Replace with your MRI image path
 %Display the original image
 figure;
 imshow(img, []);
-title('Original MRI Image');
+%title('Original MRI Image');
 hold off
 segmented_image = MFBAFCM(img, options);
     
 % Step 5: Output segmented image
 figure;
 imshow(segmented_image, []);
-title('Segmented MRI Image');
+%title('Segmented MRI Image');
