@@ -1,6 +1,6 @@
 % Example parameters
 options.nBats = 30;
-options.itermax = 3;
+options.itermax = 100;
 options.lowerBound = 0;
 options.upperBound = 1;
 options.nClusters = 4;
@@ -18,11 +18,11 @@ options.fcmIterMax = 200;
 
 % Load and segment an example image
 img = imread('mri.tif'); % Replace with your MRI image path
-% Display the original image
-% figure;
-% imshow(img, []);
-% title('Original MRI Image');
-
+%Display the original image
+figure;
+imshow(img, []);
+title('Original MRI Image');
+hold off
 segmented_image = MFBAFCM(img, options);
     
 % Step 5: Output segmented image
