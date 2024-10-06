@@ -18,7 +18,6 @@ options.chaotic = false;
 options.epsilon = 1e-5; % Convergence criterion for FCM
 options.fcmIterMax = 200;
 options.DistanceMetric = 'euclidean';
-options.Exponent = 1.5;
 
 % Load and segment an example image
 image = imread('mri.tif'); % Replace with your MRI image path

@@ -17,19 +17,19 @@ options.chaotic = false;
 options.epsilon = 1e-5; % Convergence criterion for FCM
 options.fcmIterMax = 200;
 options.DistanceMetric = 'euclidean';
-options.Exponent = 1.5;
 
 % Load and segment an example image
 image = imread('mri.tif'); % Replace with your MRI image path
-%Display the original image
-figure;
-imshow(image, []);
-%title('Original MRI Image');
-hold off
-
 img = double(image); % Convert image to double
 img = img / max(img(:)); % Normalize image
 img = img(:);
 options.dataPoints = img;
 
-segmented_image = computeFCM(image, options);
+results = computeFCM(options);
+PC = calculatePartitionCoefficient(results.U);
+CE = calculateClassificationEntropy(results.U);
+SC = calculatePartitionIndex(results.U', options.dataPoints, ...
+    results.centers, options.m);
+S = fuzzySeparationIndex(options.dataPoints, results.centers,...
+    results.U, options.m);
+sprintf("PC:%5.3f-CE:%5.3f-SC:%5.3f-S:%5.3f", PC,CE,SC, S)

@@ -5,32 +5,19 @@ function S = fuzzySeparationIndex(data, centroids, U, m)
     % m: fuzziness exponent (typically m > 1)
     
     % Number of samples and clusters
-    [num_samples, ~] = size(data);
+    [num_samples, num_features] = size(data);
     [num_clusters, ~] = size(centroids);
     
     % Calculate the numerator
-    numerator = 0;
-    for j = 1:num_clusters
-        for i = 1:num_samples
-            % Membership value raised to power m
-            u_ji_m = U(i, j)^m;
-            % Squared Euclidean distance between data point and cluster centroid
-            dist_ij = norm(data(i, :) - centroids(j, :))^2;
-            numerator = numerator + u_ji_m * dist_ij;
-        end
-    end
+    % Compute the squared Euclidean distances in a vectorized way
+    dist_matrix = pdist2(data, centroids, 'euclidean').^2; % N x c matrix of squared distances
+    U_m = U.^m; % Raise membership values to power m
+    numerator = sum(sum(U_m .* dist_matrix)); % Compute the weighted sum of distances
     
     % Calculate the denominator
-    min_inter_centroid_dist = inf;
-    for j = 1:num_clusters
-        for k = j+1:num_clusters
-            % Squared Euclidean distance between centroids
-            dist_jk = norm(centroids(j, :) - centroids(k, :))^2;
-            if dist_jk < min_inter_centroid_dist
-                min_inter_centroid_dist = dist_jk;
-            end
-        end
-    end
+    % Compute pairwise squared distances between centroids
+    centroid_distances = pdist(centroids, 'euclidean').^2; % Vector of pairwise squared distances
+    min_inter_centroid_dist = min(centroid_distances); % Find the minimum non-zero distance
     
     % Calculate the separation index
     denominator = num_samples * min_inter_centroid_dist;
