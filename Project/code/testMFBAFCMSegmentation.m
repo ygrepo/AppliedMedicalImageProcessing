@@ -11,7 +11,7 @@ options.A = 0.5; % Initial loudness
 options.loudnessCoefficient = .9;
 options.r = 0.5; % Initial pulse rate
 options.gamma = 0.9; % Decay rate for pulse rate
-
+options.chaotic = false;
 
 options.epsilon = 1e-5; % Convergence criterion for FCM
 options.fcmIterMax = 200;
@@ -24,8 +24,11 @@ imshow(img, []);
 %title('Original MRI Image');
 hold off
 segmented_image = MFBAFCM(img, options);
-    
-% Step 5: Output segmented image
 figure;
 imshow(segmented_image, []);
 %title('Segmented MRI Image');
+
+options.chaotic = true;
+segmented_image = MFBAFCM(img, options);
+figure;
+imshow(segmented_image, []);

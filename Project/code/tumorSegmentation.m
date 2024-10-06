@@ -12,3 +12,24 @@ testLabelFileName = fullfile(imageDir,...
     "sampleBraTSTestSetValid","labelsTest","BraTS463.mat");
 %%
 openExample('fuzzy/BrainTumorSegmentationUsingFuzzyCMeansClusteringExample')
+%%
+function y = createMovingWindowFeatures(in,dim)
+% Create feature vectors using a moving window.
+
+rStep = floor(dim(1)/2);
+cStep = floor(dim(2)/2);
+
+x1 = [zeros(size(in,1),rStep) in zeros(size(in,1),rStep)];
+x = [zeros(cStep,size(x1,2));x1;zeros(cStep,size(x1,2))];
+
+[row,col] = size(x);
+yCol = prod(dim);
+y = zeros((row-2*rStep)*(col-2*cStep), yCol);
+ct = 0;
+for rId = rStep+1:row-rStep
+    for cId = cStep+1:col-cStep
+        ct = ct + 1;
+        y(ct,:) = reshape(x(rId-rStep:rId+rStep,cId-cStep:cId+cStep),1,[]);
+    end
+end
+end
