@@ -1,5 +1,4 @@
 % Example parameters
-options = struct();
 options.nBats = 30;
 options.itermax = 100;
 options.lowerBound = 0;
@@ -19,25 +18,30 @@ options.fcmIterMax = 200;
 options.DistanceMetric = 'euclidean';
 
 % Load and segment an example image
-image = imread('mri.tif'); % Replace with your MRI image path
+img = imread('mri.tif'); % Replace with your MRI image path
 %Display the original image
 figure;
-imshow(image, []);
+imshow(img, []);
 %title('Original MRI Image');
 hold off
 
+% Input original image and set parameters
 img = double(image); % Convert image to double
 img = img / max(img(:)); % Normalize image
-img = img(:);
-options.dataPoints = img;
+% img = img(:); % Flatten image for clustering
+    % img = double(image); % Convert image to double
+    % img = img / max(img(:)); % Normalize image
+ options.dataPoints = img(:); % Flatten image for clustering
 
-segmented_image = MFBAFCM(image, options);
+
+segmented_image = MFBAFCM(img, options);
 figure;
 imshow(segmented_image, []);
 %title('Segmented MRI Image');
 
 options.chaotic = true;
 options.DistanceMetric = 'fmle';
-segmented_image = MFBAFCM(image, options);
+segmented_image = MFBAFCM(img, options);
 figure;
 imshow(segmented_image, []);
+%C = subclust(clusterDemo,0.6);
