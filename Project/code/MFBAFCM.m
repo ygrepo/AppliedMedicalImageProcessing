@@ -1,6 +1,6 @@
 
 
-function segmented_image = MFBAFCM(image, options)
+function U = MFBAFCM(options)
     options.dim = options.nClusters; % Number of clusters is the dimension
 
     % Step 2: Run the Modified Bat Algorithm (MBA) to find initial cluster centers
@@ -17,9 +17,5 @@ function segmented_image = MFBAFCM(image, options)
     MaxNumIteration=options.fcmIterMax);
     [~, U] = fcm(options.dataPoints, opt);
 %    NumClusters=,...
-
-    % Step 4: Reshape the membership matrix U to form the segmented image
-    [~, maxU] = max(U); % Find the cluster with the highest membership for each pixel
-    segmented_image = reshape(maxU, size(image));
 end
 
