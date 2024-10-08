@@ -23,7 +23,7 @@ function [bestSol, bestFitness] = batAlgorithm(options)
 
     % Main loop for MBA
     for t = 1:options.itermax
-        fprintf("Iter.:%d\n", t)
+        %fprintf("Iter.:%d\n", t)
         chaotic_value = chaotic_map(mod(t, options.itermax) / options.itermax);
         for i = 1:options.nBats
             % Update frequency, velocity, and position

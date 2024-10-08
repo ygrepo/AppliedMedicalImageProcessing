@@ -1,6 +1,6 @@
 
 
-function U = MFBAFCM(options)
+function results = MFBAFCM(options)
     options.dim = options.nClusters; % Number of clusters is the dimension
 
     % Step 2: Run the Modified Bat Algorithm (MBA) to find initial cluster centers
@@ -15,7 +15,12 @@ function U = MFBAFCM(options)
     NumClusters = 'auto',...
     DistanceMetric = options.DistanceMetric,...
     MaxNumIteration=options.fcmIterMax);
-    [~, U] = fcm(options.dataPoints, opt);
-%    NumClusters=,...
+    [centers,U,objFcn,info] = fcm(options.dataPoints, opt);
+
+     results = struct();
+     results.U = U;
+     results.centers = centers;
+     results.objFcn = objFcn;
+     results.info = info;
 end
 

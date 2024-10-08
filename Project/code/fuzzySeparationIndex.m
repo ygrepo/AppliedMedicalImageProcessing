@@ -11,7 +11,7 @@ function S = fuzzySeparationIndex(data, centroids, U, m)
     % Calculate the numerator
     % Compute the squared Euclidean distances in a vectorized way
     dist_matrix = pdist2(data, centroids, 'euclidean').^2; % N x c matrix of squared distances
-    U_m = U.^m; % Raise membership values to power m
+    U_m = U'.^m; % Raise membership values to power m
     numerator = sum(sum(U_m .* dist_matrix)); % Compute the weighted sum of distances
     
     % Calculate the denominator

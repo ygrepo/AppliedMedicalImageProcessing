@@ -32,9 +32,9 @@ img = img / max(img(:)); % Normalize image
 img = img(:);
 options.dataPoints = img;
 
-U = MFBAFCM(options);
+results = MFBAFCM(options);
 % eshape the membership matrix U to form the segmented image
-[~, maxU] = max(U); % Find the cluster with the highest membership for each pixel
+[~, maxU] = max(results.U); % Find the cluster with the highest membership for each pixel
 segmented_image = reshape(maxU, size(image));
 
 figure;
@@ -43,8 +43,8 @@ imshow(segmented_image, []);
 
 options.chaotic = true;
 options.DistanceMetric = 'fmle';
-U = MFBAFCM(options);
-[~, maxU] = max(U); % Find the cluster with the highest membership for each pixel
+results = MFBAFCM(options);
+[~, maxU] = max(results.U); % Find the cluster with the highest membership for each pixel
 segmented_image = reshape(maxU, size(image));
 figure;
 imshow(segmented_image, []);
