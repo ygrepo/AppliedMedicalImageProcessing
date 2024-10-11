@@ -121,57 +121,16 @@ for i = 2:2
     options.numBins = opt.numBins;
     options.targetPeak = opt.targetPeak(subject);
     peaks = findImagePeaks(subject, Img, options);
+    landmarks{i}.peaks = peaks;
     if (opt.plotHistogram)
         % Plot the histogram and mark the landmarks
-        plotHistogramWithLandmarks(imageIndices(i),...
-            Img, minI, maxI, pc1, pc2, peaks);
+         histo = computeHistogram(Img, opt.numBins);
+         plotHistogramWithLandmarks(subject, histo, landmarks{i})
     end
-    % Filter peaks based on prominence greater than the threshold
-    % validPeaks = pks(prominence >= opt.prominenceThreshold(i));
-    % validLocs = locs(prominence >= opt.prominenceThreshold(i));
-    % 
-    % % Check if there are at least two valid peaks
-    % if length(validPeaks) >= 2
-    %     % Sort the valid peaks by their intensity values (not their heights)
-    %     [sortedLocs, sortedIn] = sort(validLocs, 'descend');
-    % 
-    %     % The second peak is the second largest in intensity value
-    %     secondPeakLocation = sortedLocs(2);
-    %     secondPeakValue = V(secondPeakLocation); % Intensity at second peak
-    %     secondPeakProminence = prominence(sortedIn); % Intensity at second peak
-    %     secondPeakProminence = secondPeakProminence(2);
-    % 
-    %     disp(['Subject: ', num2str(imageIndices(i))]);
-    %     disp(['Second peak value:', num2str(secondPeakValue),...
-    %         '-Prominence:',num2str(secondPeakProminence)]);
-    % 
-    %     if (opt.plotHistogram)
-    %         % Plot the histogram and mark the landmarks
-    %         plotHistogramWithLandmarks(imageIndices(i),...
-    %             V, minI, maxI, pc1, pc2, secondPeakValue);
-    %     else
-    %         % Map the second peak location to the histogram bin
-    %         % Calculate the histogram of the image
-    %         numBins = 100;  % Set number of bins
-    %         [~, edges] = histcounts(V, numBins);  % Compute the histogram
-    % 
-    %         % Get the bin centers for mapping locs to histogram
-    %         binCenters = (edges(1:end-1) + edges(2:end)) / 2;  % Midpoints of the bins
-    %         [~, closestBin] = min(abs(binCenters - secondPeakValue));
-    % 
-    %         disp(['Second peak intensity:', num2str(secondPeakValue), ...
-    %               '-histogram bin:', num2str(closestBin)]);
-    %     end
-    %     landmarks{i}.secondPeak = secondPeakValue;
-    % 
-    % else
-    %     disp('There are less than two valid peaks with the specified prominence.');
-    landmarks{i}.secondPeak = NaN;
-    % end
 end
 end
 
-function findImagePeaks(subject, Img,opt)
+function peaks = findImagePeaks(subject, Img,opt)
 
     % Find peaks and their prominences
     [pks, locs, ~, prominence] = findpeaks(Img);
@@ -243,38 +202,39 @@ function logPeak(data, closestBin)
         '-Closest Bin:', num2str(closestBin)]);
 end
 
-function plotHistogramWithLandmarks(numBins, subject, V, minI, maxI, pc1, pc2, peaks)
-    % Calculate the histogram of the image
-    [counts, edges] = histcounts(V, numBins);  % Compute the histogram
-    
-    % Get the bin centers for plotting
-    binCenters = (edges(1:end-1) + edges(2:end)) / 2;  % Midpoints of the bins
-
-    % Plot the histogram
+function plotHistogramWithLandmarks(subject, histo, landmarks)
+    % % Plot the histogram
     figure; % Create a new figure for each plot
-    bar(binCenters, counts);  % Plot the histogram
+    bar(histo.binCenters, histo.counts);  % Plot the histogram
     hold on;
     
-    % Mark minI, maxI, pc1, pc2, and second peak
-    xline(minI, 'g', 'LineWidth', 2, 'Label', 'minI');
-    xline(maxI, 'b', 'LineWidth', 2, 'Label', 'maxI');
-    xline(pc1, 'm', 'LineWidth', 2, 'Label', 'pc1 (10th Percentile)');
-    xline(pc2, 'c', 'LineWidth', 2, 'Label', 'pc2 (99.8th Percentile)');
-    xline(secondPeakIntensity, 'r', 'LineWidth', 2, 'Label', '2nd Peak');
-    
+    % Mark minI, maxI, pc1, pc2
+    h1 = xline(landmarks.min, 'g', 'LineWidth', 2, 'Label', 'minI');
+    h2 = xline(landmarks.max, 'b', 'LineWidth', 2, 'Label', 'maxI');
+    h3 = xline(landmarks.pc1, 'm', 'LineWidth', 2, 'Label', 'pc1 (10th Percentile)');
+    h4 = xline(landmarks.pc2, 'c', 'LineWidth', 2, 'Label', 'pc2 (99.8th Percentile)');
+
+    % Plot multiple peaks
+    peakHandles = [];
+    for i = 1:length(landmarks.peaks)
+        peakHandles(i) = xline(landmarks.peaks{i}.value, 'r', 'LineWidth', 2, ...
+            'Label', ['Peak ' num2str(i) ' (Prom: ' num2str(landmarks.peaks{i}.p) ')']);
+    end
+
     % Add labels and title
     title(['Histogram with Landmarks, Subject: ', num2str(subject)]);
     xlabel('Intensity Value');
     ylabel('Count');
-    legend('Histogram', 'minI', 'maxI', 'pc1', 'pc2', '2nd Peak');
-    
+
+    % Create dynamic legend including peaks
+    legend([h1, h2, h3, h4, peakHandles], 'Histogram', 'minI', 'maxI', ...
+        'pc1', 'pc2', ...
+        arrayfun(@(i) ['Peak ' num2str(i)], 1:length(landmarks.peaks), 'UniformOutput', false));
+
     hold off;
 end
 
-
-
 function plotHistogram(images, imageIndices)
-
 figure;
 t = tiledlayout(2, 3); % 2x3 grid
 
