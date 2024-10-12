@@ -6,7 +6,9 @@ clc
 folder = './MRI_T1W';  % Update this path to your directory
 trainingImageIndices = [2:7, 9:12];
 imageData = loadImages(folder, trainingImageIndices);
-%imageData.V(imageData.isTraining)
+% Set up the landmark parameters
+imageData = setUpPeaks(imageData);
+imageData = setUpPercentiles(imageData);
 
 %%
 
@@ -18,34 +20,94 @@ plotHistogram(images(6:end),setIndex(6:end));
 %%
 
 plotHistogram2(imageData.V(imageData.isTraining))
-%%
-[2 10]
-[2]
+
 %%
 img = imageData.V(imageData.isTraining);
-subjectIndex = 2;
+subjectIndex = 10;
 img = img{subjectIndex};
 landmarks = struct();
 flatImg = img(:);
+histo = computeHistogram(flatImg, 100);
 landmarks.min = min(flatImg);
 landmarks.max = max(flatImg); 
-histo = computeHistogram(img, 100);
-landmarks.peaks  = findNthLargestBinsIntensity(histo, [2 20]);
+landmarks.peaks  = findNthLargestBinsIntensity(histo, [2 6]);
 landmarks.percentiles = getPercentiles(flatImg,[10 99.8]); 
-subject = imageData.imageIndex(imageData.isTraining);
-subject = subject(1);
+subject = imageData.subjectIndex(imageData.isTraining);
+subject = subject(subjectIndex);
 plotHistogramWithLandmarks(subject, histo, landmarks);
 
 %%
 opt = struct();
 opt.plotHistogram = false;
-opt.prominenceThreshold = repmat(10, 1, size(imageData.imageIndex,1));
-opt.targetPeak = repmat(200, 1, size(imageData.imageIndex,1));
-opt.binIdx = ones(1,size(imageData.imageIndex,1));
-landmarks = determineLandmarks(imageData.V(imageData.isTraining),...
-    imageData.imageIndex(imageData.isTraining), opt);
+opt.numBins = 100;
+landmarks = determineLandmarks(imageData, opt);
+%%
+displayLandmarks(landmarks)
+%%
+clc
+[s1, s2] = finds1s2(landmarks);
+%%
+%applyStandardizations(landmarks{1}, s1, s2)
+standardizedLandmarks = applyStandardizationToLandmarks(landmarks, s1, s2);
+%%
+clc
+displayLandmarks(landmarks)
+displayStandardizedLandmarks(standardizedLandmarks);
+%%
+clc
+combinedAggregatedLandmarks = combineStandardizedLandmarks(standardizedLandmarks);
+displayCombinedAggregatedLandmarks(combinedAggregatedLandmarks);
+meanLandmarks = computeMeanLandmarks(combinedAggregatedLandmarks);
+meanLandmarks
+%%
+function res = standardize(val, s1, s2, pc1, pc2)
+    res = s1 + (val - pc1) * (s2 - s1) / (pc2 - pc1);
+end
+
+function result = applyStandardizations(data, s1, s2)
+    result = {};
+    pc1 = data.percentiles.values(1);
+    pc2 = data.percentiles.values(2);
+    result.min = standardize(data.min, s1, s2, pc1, pc2);
+    result.max = standardize(data.max, s1, s2, pc1, pc2);
+    peaks = [];
+    for i=1:size(data.peaks,2)
+        peaks(i) =  standardize(data.peaks{i}.intensity, s1, s2, pc1, pc2);
+    end
+    result.peaks = peaks;
+end
+
+function result = applyStandardizationToLandmarks(data, s1, s2)
+    result = {};
+    for i=1:size(data,2)
+        result{i} = applyStandardizations(data{i}, s1, s2);
+    end
+end
 
 
+function result = combineStandardizedLandmarks(data)
+    minArr = data{1}.min;
+    maxArr = data{1}.max;
+    N = size(data,2);
+    for i=2:N
+        minArr = [minArr; data{i}.min];
+        maxArr = [maxArr; data{i}.max];
+    end
+    result.min = minArr;
+    result.max = maxArr;
+    allPeaks = data{1}.peaks;
+    for i=2:N
+        allPeaks =[allPeaks; data{i}.peaks];
+    end
+    result.peaks = allPeaks;
+end
+
+function result = computeMeanLandmarks(data)
+    result = struct();
+    result.min=mean(data.min);
+    result.max=mean(data.max);
+    result.peaks = mean(data.peaks, 1);
+end
 %%
 function imageData = loadImages(folder, trainingImageIndices)
     % Get all .nii files in the folder
@@ -57,25 +119,27 @@ function imageData = loadImages(folder, trainingImageIndices)
     images = {};
     isTraining = false(1, length(niiFiles));  % Preallocate logical array for training set
     imageIndex = zeros(1, length(niiFiles));  % Preallocate logical array for training set
-    
+    subjectIndex = zeros(1, length(niiFiles));  
+
     % Loop through all NIfTI files
     for i = 1:length(niiFiles)
         baseFileName = niiFiles(i).name;
         fullFileName = fullfile(folder, baseFileName);       
         % Extract the number after 'sub-' using regular expressions
-        subjectNumber = regexp(fullFileName, '(?<=sub-)\d+', 'match');
-        % Convert to numeric 
-        subjectNumber = str2double(subjectNumber{1});
-        disp(['Training subject number: ', num2str(subjectNumber)]);
+        subject = regexp(fullFileName, '(?<=sub-)\d+', 'match');
+        subject = int8(str2double(subject{1}));
+        disp(['Training subject number: ', num2str(subject)]);
 
         % Store NIfTI info and read the image data
         infoData{i} = niftiinfo(fullFileName);    
         images{i} = niftiread(infoData{i});
         
         % Check if the image is part of the training set
-        if ismember(subjectNumber, trainingImageIndices)
-            isTraining(subjectNumber) = true;  % Mark as training image
+        if ismember(subject, trainingImageIndices)
+            disp(['Subject:' num2str(subject) ' in training set'])
+            isTraining(i) = true;  % Mark as training image
         end
+        subjectIndex(i) = subject;
         imageIndex(i) = i;
     end
     
@@ -84,14 +148,36 @@ function imageData = loadImages(folder, trainingImageIndices)
     imageData.V = images';
     imageData.isTraining = isTraining';
     imageData.imageIndex = imageIndex';
+    imageData.subjectIndex = subjectIndex';
+end
+%%
+function data = setUpPeaks(data)
+data.peaks{1} = [2 5];
+data.peaks{2} = [2 20];
+data.peaks{3} = [2 20];
+data.peaks{4} = [2 20];
+data.peaks{5} = [2 41];
+data.peaks{6} = [2 6];
+data.peaks{7} = [2 6];
+data.peaks{8} = [2 10];
+data.peaks{9} = [2 6];
+data.peaks{10} = [2 6];
+data.peaks{11} = [];
+data.peaks{12} = [];
 end
 
-function landmarks = determineLandmarks(imageSet,...
-    imageIndices, opt)
-
-if ~isfield(opt, 'prominenceThreshold')
-    opt.prominenceThreshold = 10;
+function data = setUpPercentiles(data)
+for i = 1:length(data.subjectIndex) - 2
+    data.percentiles{i} = [10 99.8];
 end
+data.percentiles{11} = [];
+data.percentiles{12} = [];
+
+end
+
+%%
+function landmarks = determineLandmarks(imageData, opt)
+
 if ~isfield(opt, 'plotHistogram')
     opt.plotHistogram = false;
 end
@@ -99,56 +185,64 @@ if ~isfield(opt, 'numBins')
     opt.numBins = 100;
 end
 
-
 landmarks = {};  
-%for i = 2:2
-for i = 1:size(imageSet, 1)
+for i = 1:size(imageData.imageIndex, 1)
+    subject = imageData.subjectIndex(i);
+    subjectLabel = num2str(subject);
+    if imageData.isTraining(i) == false
+        disp(['Subject:' subjectLabel ' not in training set'])
+        continue
+    end
+    disp(['Subject:' subjectLabel ' in training set'])
 
-    % Read the NIfTI data
-    Img = imageSet{i};
+    % Access to the image
+    Img = imageData.V{i};
       
     % Reshape the image matrix into a vector for percentile calculation
-    Img = double(Img(:));  % Flatten the 3D image volume to 1D vector
+    flatImg = double(Img(:));  % Flatten the 3D image volume to 1D vector
     
-    minI = min(Img);
-    maxI = max(Img);
+    result = struct();
+    result.min = min(flatImg);
+    result.max = max(flatImg);
+    histo = computeHistogram(flatImg, opt.numBins);
+    result.peaks  = findNthLargestBinsIntensity(histo, imageData.peaks{i});
+    result.percentiles = getPercentiles(flatImg,imageData.percentiles{i}); 
+    result.imageIndex = imageData.imageIndex(i);
+    result.subjectIndex = imageData.subjectIndex(i);
+    landmarks{i} = result;
+
     
-    % Calculate pc1 and pc2
-    pc1 = prctile(Img, 10);
-    pc2 = prctile(Img, 99.8); 
-    
-    % Mode
-    modeV = mode(Img);
-    
-    % Store the landmarks for this image
-    landmarks{i} = struct('index', imageIndices(i),...
-        'min', minI, 'max', maxI, ...
-        'pc1', pc1, 'pc2', pc2, 'mode', modeV);
+    % % Store the landmarks for this image
+    % landmarks{i} = struct('index', imageIndices(i),...
+    %     'min', minI, 'max', maxI, ...
+    %     'pc1', pc1, 'pc2', pc2, 'mode', modeV);
 
     % Display percentiles for each image (optional)
-    subject = imageIndices(i);
-    disp(['Subject: ', num2str(subject)]);
-    disp(['Min:', num2str(minI),...
-        '-max:', num2str(maxI), '-pc1:', num2str(pc1), ...
-        '-pc2:', num2str(pc2), '-mode:', num2str(modeV)]);
+    % subject = imageIndices(i);
+    % disp(['Subject: ', num2str(subject)]);
+    % disp(['Min:', num2str(minI),...
+    %     '-max:', num2str(maxI), '-pc1:', num2str(pc1), ...
+    %     '-pc2:', num2str(pc2), '-mode:', num2str(modeV)]);
     
-    % Find peaks and their prominence
-    options = struct();
-    options.prominenceThreshold = opt.prominenceThreshold(subject);
-    options.numBins = opt.numBins;
-    options.targetPeak = opt.targetPeak(subject);
-    options.binIdx = opt.binIdx(i);
-    peaks = findImagePeaks(subject, Img, options);
-    landmarks{i}.peaks = peaks;
-    if (opt.plotHistogram)
-        % Plot the histogram and mark the landmarks
-         histo = computeHistogram(Img, opt.numBins);
-         plotHistogramWithLandmarks(subject, histo, landmarks{i})
-    end
+    % % Find peaks and their prominence
+    % options = struct();
+    % options.prominenceThreshold = opt.prominenceThreshold(subject);
+    % options.numBins = opt.numBins;
+    % options.targetPeak = opt.targetPeak(subject);
+    % options.binIdx = opt.binIdx(i);
+    % peaks = findImagePeaks(subject, Img, options);
+    % landmarks{i}.peaks = peaks;
+    % if (opt.plotHistogram)
+    %     % Plot the histogram and mark the landmarks
+    %      histo = computeHistogram(Img, opt.numBins);
+    %      plotHistogramWithLandmarks(subject, histo, landmarks{i})
+    % end
 end
 end
-
+%%
 function result = getPercentiles(Img,percents)
+    disp('Percentiles')
+    disp(percents)
     percentiles = prctile(Img,percents);
     labels = [];
     values = [];
@@ -161,38 +255,7 @@ function result = getPercentiles(Img,percents)
     result.values = values;
 end
 
-function peaks = findImagePeaks(Img,opt)
-
-    % Find peaks and their prominences
-    [pks, locs, ~, prominences] = findpeaks(Img);
-
-    % Filter peaks based on prominence greater than the threshold
-    prominenceThreshold = opt.prominenceThreshold;
-    validPeaks = pks(prominences >= prominenceThreshold);
-    validLocs = locs(prominences >= prominenceThreshold);
-    validProminences = prominences(prominences >= prominenceThreshold);
-    
-    peaks = {};
-    % Check if there are at least two valid peaks
-    if length(validPeaks) >= 2
-         % result = findpeakByGivenIndex(validPeaks,...
-         %     validLocs, validProminences, 2);
-        histo = computeHistogram(Img, opt.numBins);
-        result = findPeakByGivenIndex(histo, locs, prominences, opt.binIdx);
-        closestBin = getClosestBin(result, histo);
-        logPeak(result, closestBin);
-        peaks{1} = result;
-
-        result = findPeakCloserToIntensity(validPeaks,...
-            validLocs, validProminences, opt.targetPeak);
-        closestBin = getClosestBin(result, histo);
-        logPeak(result, closestBin);
-        peaks{2} = result;     
-    else
-        disp('There are less than two valid peaks with the specified prominence.');
-    end
-end
-
+%%
 function result = computeHistogram(Img, numBins)
    [counts, edges] = histcounts(Img, numBins);  % Compute the histogram
    binCenters = (edges(1:end-1) + edges(2:end)) / 2;  % Midpoints of the bins
@@ -202,34 +265,7 @@ function result = computeHistogram(Img, numBins)
    result.binCenters = binCenters;
 end
 
-function result = findPeakByGivenIndex(histo, locs, prominences, idx)   
-    % Sort the bins by frequency (descending order)
-    [~, sortedInd] = sort(histo.counts, 'descend');
-    
-    % Find the intensity value corresponding to the idx-th most frequent bin
-    targetBinCenter = histo.binCenters(sortedInd(idx));
-    
-    % Find the peak closest to this intensity value
-    [~, closestPeakIdx] = min(abs(locs - targetBinCenter));  % Get closest peak
-    
-    % Return the peak details
-    result = struct();
-    result.value = locs(closestPeakIdx);
-    result.loc = locs(closestPeakIdx);
-    result.p = prominences(closestPeakIdx);
-end
-
-function result = findPeakCloserToIntensity(values, locs, prominences, targetInt)
-disp(['Find peak closer to:', num2str(targetInt)])
-% Find the peak closest to intensity intV
-[~, idx] = min(abs(values - targetInt));  
-% Get the peak (the one around intV intensity)
-result = struct();
-result.value = values(idx);
-result.loc = locs(idx);
-result.p = prominences(idx);
-end
-
+%%
 function results = findNthLargestBinsIntensity(histo, values)
     results = {};
     for i=1:length(values)
@@ -265,12 +301,18 @@ function result = findNthLargestBinIntensity(histo, n)
     disp(['Number of pixels in this bin: ', num2str(nthLargestBinCount)]);
 end
 
-
-
-function closestBin = getClosestBin(data, histo)
-    [~, closestBin] = min(abs(histo.binCenters - data.value));
+%%
+function [s1, s2] = finds1s2(data)
+s1 = 1;
+s2 = 0;
+for i=1:size(data,2)
+    disp(['Max:' num2str(data{i}.max)])
+    if data{i}.max > s2
+        s2 = data{i}.max;
+    end
 end
-
+end
+%%
 
 function logPeak(data, closestBin)
  disp(['Peak intensity:', num2str(data.value), ...
@@ -278,6 +320,7 @@ function logPeak(data, closestBin)
         '-Prominence:', num2str(data.p),...
         '-Closest Bin:', num2str(closestBin)]);
 end
+
 
 function mappedImage = standardizeImage(Img, s1, s2, pc1, pc2)
     % Standardize the image using linear mapping between percentiles and [s1, s2]
@@ -360,37 +403,6 @@ function plotHistogramWithLandmarks(subject, histo, landmarks)
     hold off;
 end
 
-function plotHistogramWithLandmarks2(subject, histo, landmarks)
-    % % Plot the histogram
-    figure; % Create a new figure for each plot
-    bar(histo.binCenters, histo.counts);  % Plot the histogram
-    hold on;
-    
-    % Mark minI, maxI, pc1, pc2
-    h1 = xline(landmarks.min, 'g', 'LineWidth', 2, 'Label', 'minI');
-    h2 = xline(landmarks.max, 'b', 'LineWidth', 2, 'Label', 'maxI');
-    h3 = xline(landmarks.pc1, 'm', 'LineWidth', 2, 'Label', 'pc1 (10th Percentile)');
-    h4 = xline(landmarks.pc2, 'c', 'LineWidth', 2, 'Label', 'pc2 (99.8th Percentile)');
-
-    % Plot multiple peaks
-    peakHandles = [];
-    for i = 1:length(landmarks.peaks)
-        peakHandles(i) = xline(landmarks.peaks{i}.value, 'r', 'LineWidth', 2, ...
-            'Label', ['Peak ' num2str(i) ' (Prom: ' num2str(landmarks.peaks{i}.p) ')']);
-    end
-
-    % Add labels and title
-    title(['Histogram with Landmarks, Subject: ', num2str(subject)]);
-    xlabel('Intensity Value');
-    ylabel('Count');
-
-    % Create dynamic legend including peaks
-    % legend([h1, h2, h3, h4, peakHandles], 'Histogram', 'min', 'max', ...
-    %     'pc1', 'pc2', ...
-    %     arrayfun(@(i) ['Peak ' num2str(i)], 1:length(landmarks.peaks), 'UniformOutput', false));
-
-    hold off;
-end
 
 function plotHistogram(images, imageIndices)
 figure;
@@ -467,3 +479,77 @@ function [pc0, pc998] = computePercentilesFromHistogram(image, numBins)
     disp(['0th Percentile (Min): ', num2str(pc0)]);
     disp(['99.8th Percentile: ', num2str(pc998)]);
 end
+
+%%
+function displayLandmarks(landmarks)
+    % Function to display the contents of the 'landmarks' cell array
+    
+    % Loop through each landmark
+    for i = 1:length(landmarks)
+        fprintf('\nLandmark %d:\n', i);
+        
+        % Access the current landmark struct
+        landmark = landmarks{i};
+        
+        % Display 'min' and 'max' fields
+        fprintf('  Min intensity: %g\n', landmark.min);
+        fprintf('  Max intensity: %g\n', landmark.max);
+        
+        % Display 'imageIndex' and 'subjectIndex'
+        fprintf('  Image Index: %d\n', landmark.imageIndex);
+        fprintf('  Subject Index: %d\n', landmark.subjectIndex);
+        
+        % Display percentiles
+        fprintf('  Percentiles:\n');
+        disp(landmark.percentiles)
+        % for j=1:length(landmark.percentiles.values)
+        %     fprintf('    %s-%g\n', landmark.percentiles.labels{j},...
+        %          landmark.percentiles.values(j));
+        % end
+        
+        % Display peaks
+        fprintf('  Peaks:\n');
+        disp(landmark.peaks)
+        % for j = 1:length(landmark.peaks)
+        %     peak = landmark.peaks{j};
+        %     fprintf('    Peak %d:\n', j);
+        %     fprintf('      Intensity: %g\n', peak.intensity);
+        %     fprintf('      Count: %d\n', peak.count);
+        %     fprintf('      Bin: %d\n', peak.bin);
+        % end
+    end
+end
+%%
+function displayStandardizedLandmarks(landmarks)
+    % Function to display the contents of the 'standardizedLandmarks' cell array
+    
+    % Loop through each standardized landmark
+    for i = 1:length(landmarks)
+        fprintf('\nStandardized Landmark %d:\n', i);
+        
+        % Access the current standardized landmark struct
+        landmark = landmarks{i};
+        
+        % Display 'min' and 'max' fields
+        fprintf('  Min intensity: %g\n', landmark.min);
+        fprintf('  Max intensity: %g\n', landmark.max);
+        
+        % Display peaks
+        fprintf('  Peaks:\n');
+        % Loop through each element in 'peaks'
+        for j = 1:length(landmark.peaks)
+            fprintf('    Peak %d: %g\n', j, landmark.peaks(j));
+        end
+    end
+end
+%%
+function displayCombinedAggregatedLandmarks(data)
+    % Function to display the contents of the aggregated staandardized 'landmarks'
+    disp('Min Intensity')
+    disp(data.min)
+    disp('Max Intensity')
+    disp(data.max)
+    disp('Peaks')
+    disp(data.peaks)
+end
+%
