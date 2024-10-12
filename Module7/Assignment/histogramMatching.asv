@@ -20,21 +20,17 @@ plotHistogram(images(6:end),setIndex(6:end));
 plotHistogram2(imageData.V(imageData.isTraining))
 %%
 [2 10]
-[2 20]
-[2 20]
-[2 41]
-[2 23]
-
+[2]
 %%
 img = imageData.V(imageData.isTraining);
-subjectIndex = 5;
+subjectIndex = 2;
 img = img{subjectIndex};
 landmarks = struct();
 flatImg = img(:);
 landmarks.min = min(flatImg);
 landmarks.max = max(flatImg); 
 histo = computeHistogram(img, 100);
-landmarks.peaks  = findNthLargestBinsIntensity(histo, [2 23]);
+landmarks.peaks  = findNthLargestBinsIntensity(histo, [2 20]);
 landmarks.percentiles = getPercentiles(flatImg,[10 99.8]); 
 subject = imageData.imageIndex(imageData.isTraining);
 subject = subject(1);
