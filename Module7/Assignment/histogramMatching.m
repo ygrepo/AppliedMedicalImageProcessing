@@ -6,106 +6,122 @@ clc
 folder = './MRI_T1W';  % Update this path to your directory
 trainingImageIndices = [2:7, 9:12];
 imageData = loadImages(folder, trainingImageIndices);
-% Set up the landmark parameters
-imageData = setUpPeaks(imageData);
-imageData = setUpPercentiles(imageData);
-
-%%
-
-images = imageData.V(imageData.isTraining);
-setIndex = imageData.imageIndex(imageData.isTraining);
-plotHistogram(images(1:5),setIndex(1:5));
-plotHistogram(images(6:end),setIndex(6:end));
-
-%%
-
-plotHistogram2(imageData.V(imageData.isTraining))
-
-%%
-img = imageData.V(imageData.isTraining);
-subjectIndex = 10;
-img = img{subjectIndex};
+%% Tune the bin number for peak landmarks ----
+subjectIndex = 12;
+img = imageData.V{subjectIndex};
 landmarks = struct();
 flatImg = img(:);
 histo = computeHistogram(flatImg, 100);
 landmarks.min = min(flatImg);
 landmarks.max = max(flatImg); 
-landmarks.peaks  = findNthLargestBinsIntensity(histo, [2 6]);
+landmarks.peakIndex = [2 6];
+landmarks.peaks  = findNthLargestBinsIntensity(histo, landmarks.peakIndex);
 landmarks.percentiles = getPercentiles(flatImg,[10 99.8]); 
-subject = imageData.subjectIndex(imageData.isTraining);
-subject = subject(subjectIndex);
+subject = imageData.subjectIndex(subjectIndex);
 plotHistogramWithLandmarks(subject, histo, landmarks);
 
+%% Set up the landmark parameters
+imageData = setUpPeaks(imageData);
+imageData = setUpPercentiles(imageData);
+
 %%
+clc
 opt = struct();
 opt.plotHistogram = false;
 opt.numBins = 100;
-landmarks = determineLandmarks(imageData, opt);
+imageLandmarks = determineLandmarks(imageData, opt);
 %%
-displayLandmarks(landmarks)
-%%
-clc
-[s1, s2] = finds1s2(landmarks);
-%%
-applyStandardizations(landmarks{1}, s1, s2)
-%standardizedLandmarks = applyStandardizationToLandmarks(landmarks, s1, s2);
+clc;
+displayLandmarks(imageLandmarks)
 %%
 clc
-displayStandardizedLandmarks(standardizedLandmarks);
+[s1, s2] = finds1s2(imageLandmarks);
+% adjust s2 to be less than max. of intensities
+%
+%%
+%applyStandardizations(imageLandmarks{1}, s1, s2)
+imageLandmarks = applyStandardizationToLandmarks(imageLandmarks, s1, s2);
 %%
 clc
-combinedAggregatedLandmarks = combineStandardizedLandmarks(standardizedLandmarks);
-displayCombinedAggregatedLandmarks(combinedAggregatedLandmarks);
-meanLandmarks = computeMeanLandmarks(combinedAggregatedLandmarks);
-meanLandmarks
+displayLandmarks(imageLandmarks);
+%%
+clc
+% combineStandardizedLandmarks(imageLandmarks)
+% computeMeanLandmarks(imageLandmarks)
+imageLandmarks = addMeanStandardScaledLandmarks(imageLandmarks);
+%%
+clc
+displayLandmarks(imageLandmarks);
+%%
+imageLandmarks{1} = transformImage(imageLandmarks{1},s1, s2);
+%%
+figure;
+sliceViewer(imageLandmarks{1}.V, []);
+title('Transformed Image');
+
+figure;
+sliceViewer(imageLandmarks{1}.transfV, []);
+title('Transformed Image');
+%%
+imageLandmarks = transformImages(imageLandmarks, s1, s2);
+
 %%
 function res = standardize(val, s1, s2, pc1, pc2)
+    if val < pc1
+        fprintf('Val:%g less than pc1:%g\n', val, pc1);
+        res = s1;
+        fprintf('Val:%g\n', val);
+        return
+    end
+    if val > pc2
+        fprintf('Val:%g greater than pc2:%g\n', val, pc2);
+        res = s2;
+        fprintf('Val:%g\n', res);
+        return
+    end
     res = s1 + (val - pc1) * (s2 - s1) / (pc2 - pc1);
 end
 
-function result = applyStandardizations(data, s1, s2)
-    result = {};
-    pc1 = data.percentiles.values(1);
-    pc2 = data.percentiles.values(2);
-    result.min = standardize(data.min, s1, s2, pc1, pc2);
-    result.max = standardize(data.max, s1, s2, pc1, pc2);
-    peaks = [];
-    for i=1:size(data.peaks,2)
-        peaks(i) =  standardize(data.peaks{i}.intensity, s1, s2, pc1, pc2);
+function data = applyStandardizations(data, s1, s2)
+    pc1 = data.pc1;
+    pc2 = data.pc2;
+    values = zeros(length(data.landmarks),1);
+    for i=1:length(data.landmarks)
+        values(i) =  standardize(data.landmarks(i), s1, s2, pc1, pc2);
     end
-    result.peaks = peaks;
+    data.standardScaledlandmarks = values;
 end
 
-function result = applyStandardizationToLandmarks(data, s1, s2)
-    result = {};
+function data = applyStandardizationToLandmarks(data, s1, s2)
     for i=1:size(data,2)
-        result{i} = applyStandardizations(data{i}, s1, s2);
+        data{i} = applyStandardizations(data{i}, s1, s2);
     end
 end
 
 
-function result = combineStandardizedLandmarks(data)
-    minArr = data{1}.min;
-    maxArr = data{1}.max;
+function arr = combineStandardizedLandmarks(data)
+    arr = data{1}.standardScaledlandmarks';
     N = size(data,2);
     for i=2:N
-        minArr = [minArr; data{i}.min];
-        maxArr = [maxArr; data{i}.max];
+        if data{i}.isTraining
+            disp(['Adding landmarks of ',  num2str(data{i}.subjectIndex) ' as part of training'])
+            arr = [arr; data{i}.standardScaledlandmarks'];
+        else
+            disp(['Skipping landmarks of ',  num2str(data{i}.subjectIndex) ' as not part of training'])
+        end
     end
-    result.min = minArr;
-    result.max = maxArr;
-    allPeaks = data{1}.peaks;
-    for i=2:N
-        allPeaks =[allPeaks; data{i}.peaks];
-    end
-    result.peaks = allPeaks;
 end
 
-function result = computeMeanLandmarks(data)
-    result = struct();
-    result.min=mean(data.min);
-    result.max=mean(data.max);
-    result.peaks = mean(data.peaks, 1);
+function arr = computeMeanLandmarks(data)
+    arr = combineStandardizedLandmarks(data);
+    arr = mean(arr, 1);
+end
+
+function data = addMeanStandardScaledLandmarks(data)
+    meanScaledValues = computeMeanLandmarks(data);
+    for i=1:size(data,2)
+        data{i}.meanStandardScaledlandmarks = meanScaledValues;
+    end
 end
 %%
 function imageData = loadImages(folder, trainingImageIndices)
@@ -161,17 +177,14 @@ data.peaks{7} = [2 6];
 data.peaks{8} = [2 10];
 data.peaks{9} = [2 6];
 data.peaks{10} = [2 6];
-data.peaks{11} = [];
-data.peaks{12} = [];
+data.peaks{11} = [2 6];
+data.peaks{12} = [2 6];
 end
 
 function data = setUpPercentiles(data)
-for i = 1:length(data.subjectIndex) - 2
+for i = 1:length(data.subjectIndex)
     data.percentiles{i} = [10 99.8];
 end
-data.percentiles{11} = [];
-data.percentiles{12} = [];
-
 end
 
 %%
@@ -188,12 +201,7 @@ landmarks = {};
 for i = 1:size(imageData.imageIndex, 1)
     subject = imageData.subjectIndex(i);
     subjectLabel = num2str(subject);
-    if imageData.isTraining(i) == false
-        disp(['Subject:' subjectLabel ' not in training set'])
-        continue
-    end
-    disp(['Subject:' subjectLabel ' in training set'])
-
+    disp(['Subject:' subjectLabel]);
     % Access to the image
     Img = imageData.V{i};
       
@@ -201,41 +209,36 @@ for i = 1:size(imageData.imageIndex, 1)
     flatImg = double(Img(:));  % Flatten the 3D image volume to 1D vector
     
     result = struct();
+    values = [];
     result.min = min(flatImg);
-    result.max = max(flatImg);
+    if result.min < 0 
+        error('Min is negative.');
+    end
+    values(1) =  result.min;
     histo = computeHistogram(flatImg, opt.numBins);
-    result.peaks  = findNthLargestBinsIntensity(histo, imageData.peaks{i});
-    result.percentiles = getPercentiles(flatImg,imageData.percentiles{i}); 
+    peaks  = findNthLargestBinsIntensity(histo, imageData.peaks{i});
+    values = [values; peaks];
+    percentiles = getPercentiles(flatImg,imageData.percentiles{i}); 
+    result.pc1 = percentiles.values(1);
+    if result.pc1 < 0 
+        error('PC1 is negative.');
+    end
+    result.pc2 = percentiles.values(end);
+    if result.pc2 < 0 
+        error('PC2 is negative.');
+    end
+    values = [values; percentiles.values];
+    result.max = max(flatImg);
+    if result.max < 0 
+        error('Max is negative.');
+    end
+    values = [values; result.max];
+    result.landmarks = sort(values);
     result.imageIndex = imageData.imageIndex(i);
     result.subjectIndex = imageData.subjectIndex(i);
+    result.V = imageData.V{i};
+    result.isTraining = imageData.isTraining(i);
     landmarks{i} = result;
-
-    
-    % % Store the landmarks for this image
-    % landmarks{i} = struct('index', imageIndices(i),...
-    %     'min', minI, 'max', maxI, ...
-    %     'pc1', pc1, 'pc2', pc2, 'mode', modeV);
-
-    % Display percentiles for each image (optional)
-    % subject = imageIndices(i);
-    % disp(['Subject: ', num2str(subject)]);
-    % disp(['Min:', num2str(minI),...
-    %     '-max:', num2str(maxI), '-pc1:', num2str(pc1), ...
-    %     '-pc2:', num2str(pc2), '-mode:', num2str(modeV)]);
-    
-    % % Find peaks and their prominence
-    % options = struct();
-    % options.prominenceThreshold = opt.prominenceThreshold(subject);
-    % options.numBins = opt.numBins;
-    % options.targetPeak = opt.targetPeak(subject);
-    % options.binIdx = opt.binIdx(i);
-    % peaks = findImagePeaks(subject, Img, options);
-    % landmarks{i}.peaks = peaks;
-    % if (opt.plotHistogram)
-    %     % Plot the histogram and mark the landmarks
-    %      histo = computeHistogram(Img, opt.numBins);
-    %      plotHistogramWithLandmarks(subject, histo, landmarks{i})
-    % end
 end
 end
 %%
@@ -244,7 +247,7 @@ function result = getPercentiles(Img,percents)
     disp(percents)
     percentiles = prctile(Img,percents);
     labels = [];
-    values = [];
+    values = zeros(length(percentiles),1);
     for i=1:length(percentiles)
         labels{i} = num2str(percents(i));
         values(i) = percentiles(i);
@@ -265,13 +268,6 @@ function result = computeHistogram(Img, numBins)
 end
 
 %%
-function results = findNthLargestBinsIntensity(histo, values)
-    results = {};
-    for i=1:length(values)
-        results{i} = findNthLargestBinIntensity(histo, values(i));
-    end
-end
-
 function result = findNthLargestBinIntensity(histo, n)
     
     % Sort the counts in descending order and get their indices
@@ -300,6 +296,52 @@ function result = findNthLargestBinIntensity(histo, n)
     disp(['Number of pixels in this bin: ', num2str(nthLargestBinCount)]);
 end
 
+function result = findNthLargestBinsIntensity(histo, values)
+    result = zeros(length(values),1);
+    for i=1:length(values)
+         peak = findNthLargestBinIntensity(histo, values(i));
+         result(i) = peak.intensity;
+    end
+end
+
+%%
+function data = transformImage(data, s1, s2)
+   % Access to the image
+   Img = data.V;
+   
+   % Get the original size of the image
+   originalSize = size(Img);
+      
+   % Reshape the image matrix into a vector for percentile calculation
+   flatImg = double(Img(:));  % Flatten the 3D image volume to 1D vector
+
+    % Initialize transformed image Vsi with the same size as Vi
+   transfV = zeros(size(flatImg));
+   for i=1: length(data.landmarks)-1
+        % Get intensity range [mu_i(k), mu_i(k+1)]
+        % Find voxels within the range for this section of the scale
+        mu1 = data.landmarks(i);
+        mu2 = data.landmarks(i+1);
+        mu1mean = data.meanStandardScaledlandmarks(i);
+        mu2mean = data.meanStandardScaledlandmarks(i+1);
+        mask = (mu1 <= flatImg) & (flatImg < mu2);
+        transfV(mask) = (flatImg(mask) - mu1) * (mu2mean - mu1mean)/ (mu2-mu1);
+   end
+   mask = (flatImg < data.pc1);
+   transfV(mask) = s1;
+   mask = (flatImg > data.pc2);
+   transfV(mask) = s2;
+   
+   % Reshape transfV back into the original image dimensions
+   data.transfV = reshape(transfV, originalSize);
+end
+
+function data = transformImages(data, s1, s2)
+ for i=1:size(data, 2)
+     data{i} = transformImage(data{i}, s1, s2);
+ end
+end
+
 %%
 function [s1, s2] = finds1s2(data)
 s1 = 1;
@@ -310,63 +352,11 @@ for i=1:size(data,2)
         s2 = data{i}.max;
     end
 end
+if s2 < s1
+    error('S2 < S1');
+end
 end
 %%
-
-function logPeak(data, closestBin)
- disp(['Peak intensity:', num2str(data.value), ...
-        '-Location:', num2str(data.loc), ...
-        '-Prominence:', num2str(data.p),...
-        '-Closest Bin:', num2str(closestBin)]);
-end
-
-
-function mappedImage = standardizeImage(Img, s1, s2, pc1, pc2)
-    % Standardize the image using linear mapping between percentiles and [s1, s2]
-    % Map the values between pC1 and pC2 to [s1, s2]
-    
-    % Perform linear mapping on the values within the range [pc1, pc2]
-    ImgStandardized = s1 + (Img - pc1) .* (s2 - s1) ./ (pc2 - pc1);
-
-    % Clip the values outside the range [pc1, pc2] to s1 and s2 respectively
-    ImgStandardized(Img < pc1) = s1;
-    ImgStandardized(Img > pc2) = s2;
-
-    mappedImage = ImgStandardized;
-end
-
-function finalLandmarks = applyStandardization(imageSet, landmarks, s1, s2)
-    % Apply standardization to all images in the set and compute final landmarks
-
-    numImages = size(imageSet, 1);
-    numLandmarks = length(landmarks{1}.peaks); % Number of landmarks/peaks
-
-    % Array to store the standardized landmarks for each image
-    standardizedLandmarks = zeros(numImages, numLandmarks);
-
-    % Loop over all images
-    for j = 1:numImages
-        % Read the image and corresponding landmarks
-        Img = imageSet{j};
-        pc1 = landmarks{j}.pc1;
-        pc2 = landmarks{j}.pc2;
-
-        % Apply standardization to the image
-        standardizedImage = standardizeImage(Img, s1, s2, pc1, pc2);
-
-        % Compute new landmark values in the standardized image
-        for k = 1:numLandmarks
-            landmarkValue = landmarks{j}.peaks{k}.value;
-            standardizedLandmarks(j, k) = s1 + (landmarkValue - pc1) .* (s2 - s1) ./ (pc2 - pc1);
-        end
-    end
-
-    % Compute the final global mean landmarks
-    finalLandmarks = mean(standardizedLandmarks, 1);
-    disp('Final global landmarks:');
-    disp(finalLandmarks);
-end
-
 function plotHistogramWithLandmarks(subject, histo, landmarks)
     % % Plot the histogram
     figure; % Create a new figure for each plot
@@ -385,8 +375,8 @@ function plotHistogramWithLandmarks(subject, histo, landmarks)
     % Plot multiple peaks
     peakHandles = [];
     for i = 1:length(landmarks.peaks)
-        peakHandles(i) = xline(landmarks.peaks{i}.intensity, 'm', 'LineWidth', 2, ...
-            'Label', ['Peak (' num2str(landmarks.peaks{i}.bin) ')']);
+        peakHandles(i) = xline(landmarks.peaks(i), 'm', 'LineWidth', 2, ...
+            'Label', ['Peak (' num2str(landmarks.peakIndex(i)) ')']);
     end
 
     % Add labels and title
@@ -456,99 +446,41 @@ t.Padding = 'compact';
 end
 
 
-function [pc0, pc998] = computePercentilesFromHistogram(image, numBins)
-    % Compute the histogram
-    [counts, edges] = histcounts(image(:), numBins);
-    
-    % Get bin centers (midpoints of the bins)
-    binCenters = (edges(1:end-1) + edges(2:end)) / 2;
-
-    % Compute cumulative histogram
-    cumulativeCounts = cumsum(counts);
-    
-    % Normalize cumulative histogram to get the CDF (Cumulative Distribution Function)
-    totalPixels = cumulativeCounts(end);  % Total number of pixels
-    cumulativeCDF = cumulativeCounts / totalPixels;
-
-    % Find the intensity values corresponding to 0th and 99.8th percentiles
-    pc0 = binCenters(find(cumulativeCDF >= 0, 1, 'first'));    % 0th percentile
-    pc998 = binCenters(find(cumulativeCDF >= 0.998, 1, 'first')); % 99.8th percentile
-
-    % Display the results
-    disp(['0th Percentile (Min): ', num2str(pc0)]);
-    disp(['99.8th Percentile: ', num2str(pc998)]);
-end
-
 %%
-function displayLandmarks(landmarks)
+function displayLandmarks(imgLandmarks)
     % Function to display the contents of the 'landmarks' cell array
     
     % Loop through each landmark
-    for i = 1:length(landmarks)
-        fprintf('\nLandmark %d:\n', i);
-        
+    for i = 1:size(imgLandmarks, 2)        
         % Access the current landmark struct
-        landmark = landmarks{i};
-        
+        landmark = imgLandmarks{i};
+        %disp(landmark.subjectIndex)
+        fprintf('Subject:%g\n', landmark.subjectIndex);
+
+        % Display isTraining fields
+        fprintf('  Training: %g\n', landmark.isTraining);
+
         % Display 'min' and 'max' fields
         fprintf('  Min intensity: %g\n', landmark.min);
         fprintf('  Max intensity: %g\n', landmark.max);
+
+        % Display 'pc1' and 'pc2' fields
+        fprintf('  pc1: %g\n', landmark.pc1);
+        fprintf('  pc2: %g\n', landmark.pc2);
+
+        % Display landmarks
+        fprintf('  Landmarks:\n');
+        disp(landmark.landmarks)
         
-        % Display 'imageIndex' and 'subjectIndex'
-        fprintf('  Image Index: %d\n', landmark.imageIndex);
-        fprintf('  Subject Index: %d\n', landmark.subjectIndex);
-        
-        % Display percentiles
-        fprintf('  Percentiles:\n');
-        disp(landmark.percentiles)
-        % for j=1:length(landmark.percentiles.values)
-        %     fprintf('    %s-%g\n', landmark.percentiles.labels{j},...
-        %          landmark.percentiles.values(j));
-        % end
-        
-        % Display peaks
-        fprintf('  Peaks:\n');
-        %disp(landmark.peaks)
-        for j = 1:length(landmark.peaks)
-             peak = landmark.peaks{j};
-             fprintf('    Peak %d:\n', j);
-             fprintf('      Intensity: %g\n', peak.intensity);
-        %     fprintf('      Count: %d\n', peak.count);
-        %     fprintf('      Bin: %d\n', peak.bin);
+        if isfield(landmark, 'standardScaledlandmarks')
+            fprintf('  Standard Scaled Landmarks:\n');
+            disp(landmark.standardScaledlandmarks)
         end
+        if isfield(landmark, 'meanStandardScaledlandmarks')
+            fprintf('  Mean Standard Scaled Landmarks:\n');
+            disp(landmark.meanStandardScaledlandmarks)
+        end
+
     end
 end
-%%
-function displayStandardizedLandmarks(landmarks)
-    % Function to display the contents of the 'standardizedLandmarks' cell array
-    
-    % Loop through each standardized landmark
-    for i = 1:length(landmarks)
-        fprintf('\nStandardized Landmark %d:\n', i);
-        
-        % Access the current standardized landmark struct
-        landmark = landmarks{i};
-        
-        % Display 'min' and 'max' fields
-        fprintf('  Min intensity: %g\n', landmark.min);
-        fprintf('  Max intensity: %g\n', landmark.max);
-        
-        % Display peaks
-        fprintf('  Peaks:\n');
-        % Loop through each element in 'peaks'
-        for j = 1:length(landmark.peaks)
-            fprintf('    Peak %d: %g\n', j, landmark.peaks(j));
-        end
-    end
-end
-%%
-function displayCombinedAggregatedLandmarks(data)
-    % Function to display the contents of the aggregated staandardized 'landmarks'
-    disp('Min Intensity')
-    disp(data.min)
-    disp('Max Intensity')
-    disp(data.max)
-    disp('Peaks')
-    disp(data.peaks)
-end
-%
+
