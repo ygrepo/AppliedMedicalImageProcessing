@@ -53,17 +53,49 @@ imageLandmarks = addMeanStandardScaledLandmarks(imageLandmarks);
 clc
 displayLandmarks(imageLandmarks);
 %%
-imageLandmarks{1} = transformImage(imageLandmarks{1},s1, s2);
+%imageLandmarks{1} = transformImage(imageLandmarks{1},s1, s2);
 %%
+imageLandmarks = transformImages(imageLandmarks, s1, s2, opt);
+%%
+opt = struct();
+opt.numBins = 20;
+opt.xlim = [s1 s2];
+plotBothHistograms(imageLandmarks, s1, s2, opt);
+%%
+%
 figure;
 sliceViewer(imageLandmarks{1}.V, []);
-title('Transformed Image');
-
-figure;
-sliceViewer(imageLandmarks{1}.transfV, []);
-title('Transformed Image');
+title('Subject 2: Original Image');
 %%
-imageLandmarks = transformImages(imageLandmarks, s1, s2);
+clc
+% Define the grayscale window (e.g., [low, high] intensity values)
+window = [50, 200];  % Desired intensity window
+opt = struct();
+opt.numCols =5;
+subjectImg = imageLandmarks{12};
+titleText = ['Subject ' num2str(subjectImg.subjectIndex)];
+plotSlices(subjectImg.V, window, titleText, opt);
+
+%%
+% Define the grayscale window (e.g., [low, high] intensity values)
+window = [20, 100];  % Desired intensity window
+for i=1:size(imageLandmarks, 2)
+    indexSubject = 5;
+    subjectImg = imageLandmarks{i};
+    titleText = ['Subject ' num2str(subjectImg.subjectIndex)];
+    plotSlices(subjectImg.V, window, titleText)
+end
+
+
+%%
+%
+figure;
+sliceViewer(imageLandmarks{2}.V, []);
+title('Subject 3: Original Image');
+% 
+% figure;
+% sliceViewer(imageLandmarks{1}.transfV, []);
+% title('Transformed Image');
 
 %%
 function res = standardize(val, s1, s2, pc1, pc2)
@@ -238,6 +270,7 @@ for i = 1:size(imageData.imageIndex, 1)
     result.subjectIndex = imageData.subjectIndex(i);
     result.V = imageData.V{i};
     result.isTraining = imageData.isTraining(i);
+    result.histo = histo;
     landmarks{i} = result;
 end
 end
@@ -305,7 +338,7 @@ function result = findNthLargestBinsIntensity(histo, values)
 end
 
 %%
-function data = transformImage(data, s1, s2)
+function data = transformImage(data, s1, s2, opt)
    % Access to the image
    Img = data.V;
    
@@ -334,11 +367,12 @@ function data = transformImage(data, s1, s2)
    
    % Reshape transfV back into the original image dimensions
    data.transfV = reshape(transfV, originalSize);
+   data.transfVHisto = computeHistogram(double(transfV(:)), opt.numBins);
 end
 
-function data = transformImages(data, s1, s2)
+function data = transformImages(data, s1, s2, opt)
  for i=1:size(data, 2)
-     data{i} = transformImage(data{i}, s1, s2);
+     data{i} = transformImage(data{i}, s1, s2, opt);
  end
 end
 
@@ -383,68 +417,97 @@ function plotHistogramWithLandmarks(subject, histo, landmarks)
     title(['Histogram with Landmarks, Subject: ', num2str(subject)]);
     xlabel('Intensity Value');
     ylabel('Count');
-
-    % Create dynamic legend including peaks
-    % legend([h1, h2, h3, h4, peakHandles], 'Histogram', 'min', 'max', ...
-    %     'pc1', 'pc2', ...
-    %     arrayfun(@(i) ['Peak ' num2str(i)], 1:length(landmarks.peaks), 'UniformOutput', false));
-
     hold off;
 end
 
+function plotBothHistograms(data, s1, s2, opt)
+    N = size(data, 2);
+    
+    % First set of histograms
+    figure; % Create a new figure for original histograms
+    for i = 1:N
+        histogram(data{i}.V, 'BinLimits', [s1, s2], 'NumBins', opt.numBins);  % Plot the histogram
+        hold on;
+    end
+    title('Original Histograms', 'FontSize', 24,'FontWeight','bold');
+    xlabel('Intensity','FontSize', 24,'FontWeight','bold');
+    ylabel('Count', 'FontSize', 24,'FontWeight','bold');
+    
+    % Adjust the axis limits for zooming (optional)
+    if isfield(opt, 'xlim')
+        xlim(opt.xlim);
+    end
+    if isfield(opt, 'ylim')
+        ylim(opt.ylim);
+    end
+    set(gca, 'FontSize', 14); 
 
-function plotHistogram(images, imageIndices)
+    % Second set of histograms (for transformed image)
+    figure; % Create a new figure for transformed histograms
+    for i = 1:N
+        histogram(data{i}.transfV, 'BinLimits', [s1, s2], 'NumBins', opt.numBins);  % Plot the histogram 
+        hold on;
+    end
+    title('Transformed Histograms', 'FontSize', 24,'FontWeight','bold');
+    xlabel('Intensity','FontSize', 24,'FontWeight','bold');
+    ylabel('Count', 'FontSize', 24,'FontWeight','bold');
+    
+    % Adjust the axis limits for zooming (optional)
+    if isfield(opt, 'xlim')
+        xlim(opt.xlim);
+    end
+    if isfield(opt, 'ylim')
+        ylim(opt.ylim);
+    end
+    set(gca, 'FontSize', 14); 
+
+end
+
+function plotSlices(V, window, titleText, opt)
+if ~isfield(opt, 'numCols')
+    opt.numCols = 3;
+end
+totalSlices = 2 * opt.numCols;
+
+% Create a tiled layout with 2 rows and numCol columns
 figure;
-t = tiledlayout(2, 3); % 2x3 grid
+t = tiledlayout(2, opt.numCols);
+title(t, titleText);
 
-for i = 1:5
-    image = images{i};  % Access the voxel data from the i-th image
-
-    % Reshape the 3D image volume into a 1D vector for plotting the histogram
-    image = image(:); 
-
-    % Plot the histogram of the intensity values in the next tile
-    nexttile;  % Move to the next tile in the layout
-    histogram(image, 100);  % 100 bins for the histogram
-
-    % Set title and labels for better understanding
-    title(['Histogram of Subject ', num2str(imageIndices(i))]);
-    xlabel('Intensity Value');
-    ylabel('Count');
+% Loop through a few slices and display them with a specific grayscale window
+for i = 1:totalSlices  % Display slices
+    sliceIndex = i * 20;  % Choose every 20th slice
+    nexttile;  
+    imshow(V(:,:,sliceIndex), [], 'DisplayRange', window);
+    title(['Slice ', num2str(sliceIndex)]);
 end
 
-% Display the overall figure
-grid on;
-t.TileSpacing = 'compact';  % Adjust spacing between tiles if necessary
-t.Padding = 'compact';  % Adjust padding for a cleaner look
 end
 
-function plotHistogram2(images)
+
+function plotSlice(data,slice, titleText, opt)
+window = opt.window;  
+slice  = opt.slice;
 figure;
-t = tiledlayout(2, 3); % 2x3 grid
-
-% Loop through the first 6 images to plot their histograms
-for i = 1:6
-    % Select the i-th image
-    image = images{i};  % Access the voxel data from the i-th image
-
-    % Use the first slice of the 3D image for plotting the histogram
-    selectedImageSlice = image(:, :, 1);  % Taking the first slice (2D)
-    normalizedImageSlice = mat2gray(selectedImageSlice);
-
-    % Plot the histogram using imhist for the first slice
-    nexttile;  % Move to the next tile in the layout
-    imhist(normalizedImageSlice);  % imhist automatically uses 256 bins for grayscale images
-
-    % Set title for better understanding
-    title(['Histogram of Image ', num2str(i)]);
+t = tiledlayout(3, 4);
+%title(t, titleText);
+for i=1:size(data, 2)
+    imgData = data{i};
+    titleText = ['Subject ' num2str(imgData.subjectIndex)];
+    nexttile; 
+    if opt.original
+    imshow(V(:,:,sliceIndex), [], 'DisplayRange', window);
+    else
+    imshow(V(:,:,sliceIndex), [], 'DisplayRange', window);
+    title(['Slice ', num2str(sliceIndex)]);
+    plotSlices(subjectImg.V, window, titleText)
 end
 
-% Adjust layout spacing for better display
-t.TileSpacing = 'compact';
-t.Padding = 'compact';
-end
+subjectImg = imageLandmarks{12};
+titleText = ['Subject ' num2str(subjectImg.subjectIndex)];
+plotSlices(subjectImg.V, window, titleText, opt);
 
+end
 
 %%
 function displayLandmarks(imgLandmarks)
