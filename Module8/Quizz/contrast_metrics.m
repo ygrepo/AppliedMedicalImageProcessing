@@ -55,3 +55,13 @@ cdf = cumsum(histogram);  % Cumulative sum of the normalized histogram
 % Display the CDF
 disp('CDF (Cumulative Distribution Function):');
 disp(cdf);
+%%
+I = [1, 1, 2; 1, 2, 3; 1, 3, 4];  % Define the image matrix
+
+% Compute GLCM with horizontal adjacency and 4 levels
+[glcm, SI] = graycomatrix(I, 'Offset', [0 1], 'NumLevels', 4, 'GrayLimits', [1 4]);
+
+% Display the GLCM matrix
+disp('GLCM:');
+disp(glcm);
+
