@@ -30,10 +30,10 @@ segFCMImg = reshape(maxU, size(sliceData));
 
 % Example parameters
 options = struct();
-options.nBats = 30;
+options.nBats = 50;
 options.itermax = 100;
-options.lowerBound = 0;
-options.upperBound = 1;
+options.lowerBound = min(data);
+options.upperBound = max(data);
 options.nClusters = nClusters;
 options.m = 2; % Fuzziness exponent
 options.Qmin = 0;
@@ -41,11 +41,11 @@ options.Qmax = 2;
 options.loudness = 0.5; % Initial loudness
 options.loudnessCoefficient = .9;
 options.pulseRate = 0.5; % Initial pulse rate
-options.gamma = 0.9; % Decay rate for pulse rate
+options.gamma = 0.95; % Decay rate for pulse rate
 options.chaotic = false;
 
-options.epsilon = 1e-5; % Convergence criterion for FCM
-options.fcmIterMax = 200;
+options.epsilon = 1e-6; % Convergence criterion for FCM
+options.fcmIterMax = 300;
 options.DistanceMetric = 'euclidean';
 options.dataPoints = data;
 
