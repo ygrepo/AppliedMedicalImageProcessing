@@ -24,7 +24,7 @@ h = imshow(clusteredImg);  % Show the segmented image on top
 set(h, 'AlphaData', opt.alpha);  % Apply transparency to the overlay
 hold off;
 
-title(opt.title);
+title(opt.title, "FontSize", 20, 'FontWeight','bold');
 
 % ----- Adding a Proper Legend with Cluster Colors -----
 
@@ -43,11 +43,12 @@ for i = 1:opt.nClusters
 end
 
 % Add the legend with the fixed colors for each cluster
-%legend(legendEntries, 'Location', 'bestoutside');
-%hold off;
+legend(legendEntries, 'Location', 'bestoutside');
+hold off;
 % 
 % % ---------- Mark the Cluster Centers on the Segmented Image ----------
 % 
+hold on;
 nRows = size(Img, 1);
 nCols = size(Img, 2);
 for i=1:size(centers,1)
