@@ -1,0 +1,217 @@
+\documentclass[12pt,twoside]{article}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,graphicx,amsmath,amsfonts,amscd,amssymb,mathrsfs, bm,cite,epsfig,epsf,url}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{amsthm,multirow,wasysym,appendix}
+\usepackage{array,subcaption} 
+% \usepackage[small,bf]{caption}
+\usepackage{bbm}
+\usepackage{pgfplots}
+\usetikzlibrary{spy}
+\usepgfplotslibrary{external}
+\usepgfplotslibrary{fillbetween}
+\usetikzlibrary{arrows,automata}
+\usepackage{thmtools}
+\usepackage{blkarray} 
+\usepackage{textcomp}
+\usepackage{float}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+
+
+\usepackage{times}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{latexsym}
+\usepackage{color}
+\usepackage{graphics}
+\usepackage{enumerate}
+\usepackage{amstext}
+\usepackage{blkarray}
+\usepackage{url}
+\usepackage{epsfig}
+\usepackage{bm}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+}
+\usepackage{textcomp}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+\usepackage{mathtools}
+%\usepackage{minted}
+\usepackage{gensymb}
+
+\input{macros}
+
+
+\begin{document}
+
+\noindent Dr. Ardekani\\
+EN.585.703.81.FA24 Applied Medical Image Processing\\
+Module 7 Assignment\\
+Johns Hopkins University\\
+Student: Yves Greatti\\\
+
+
+\section*{Question 1}
+ A convenient form of 2D Radon transform is to use the following equation:
+ \begin{equation}
+    \{ \mathcal{R} \rho \}(t, \theta) = \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x \cos \theta + y \sin \theta - t) dx dy
+  \end{equation}
+  
+  using this definition:
+    \begin{enumerate}
+        \item calculate $\{ \mathcal{R} \rho \}(t, 0)$ for $\rho(x, y) = \Pi\left(\frac{x}{a}\right)\Pi\left(\frac{y}{b}\right)$ (10 points), Where:
+        \[
+        \Pi(x) = 
+        \begin{cases} 
+        1, & \text{if } |x| < 1/2 \\ 
+        0, & \text{otherwise}
+        \end{cases}
+        \]
+        For $\theta=0$:
+	\begin{equation}
+            \{ \mathcal{R} \rho \}(t, 0) = \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x  - t) dx dy
+	\end{equation}
+
+	Since $ \int_{-\infty}^{+\infty}  \rho (x ,y) \delta(x  - t) dx =  \rho (x \; , y)$; then 
+	 \begin{align*}
+	 	 	\{ \mathcal{R} \rho \}(t, 0) &= \int_{-\infty}^{+\infty}  \int_{-\infty}^{+\infty} \Pi(\frac{x}{a}) \Pi(\frac{y}{b}) \; dx \; dy \\
+			&=  \left( \int_{-\infty}^{+\infty}   \Pi(\frac{x}{a}) \; dx \right) \left( \int_{-\infty}^{+\infty}  \Pi(\frac{y}{b}) \; dy  \right)\\
+			&=  \left( \int_{-\frac{a}{2}}^{\frac{a}{2}}   \Pi(\frac{x}{a}) \; dx \right) \left(\int_{-\frac{b}{2}}^{\frac{b}{2}}  \Pi(\frac{y}{b}) \; dy  \right)\\
+			&= \left[ x\ \right]_{-\frac{a}{2}}^{\frac{a}{2}} \left[ x\ \right]_{-\frac{b}{2}}^{\frac{b}{2}} \\
+			&= a \; \cdot  b
+	\end{align*}
+
+        \item Calculate and compare the Fourier transform of $\{ \mathcal{R} \rho \}(t, 45^{\circ})$ for a square object defined by:
+        \[
+        \rho(x, y) = \Pi\left(\frac{x}{2}\right)\Pi\left(\frac{y}{2}\right)
+        \]
+        using direct approach and projection-slice theorem (20 points).
+        
+        In both [a] and [b] show your work.
+        
+        Direct approach:  
+     Given the function:
+
+\[
+\rho(x,y) = \Pi\left(\frac{x}{2}\right)\Pi\left(\frac{y}{2}\right)
+\]
+
+The 2D Fourier transform of $\rho(x,y)$ is defined as:
+
+\[
+\mathcal{F}\{\rho(x,y)\}(k_x, k_y) = \int_{-\infty}^{\infty}\int_{-\infty}^{\infty} \rho(x,y) e^{-i 2\pi(k_x x + k_y y)} dx\, dy
+\]
+
+Since $\rho(x,y)$ is non-zero only within the bounds $-1 \leq x \leq 1$ and $-1 \leq y \leq 1$, the integral reduces to:
+
+\[
+\mathcal{F}\{\rho(x,y)\}(k_x, k_y) = \int_{-1}^{1} \int_{-1}^{1} e^{-i 2\pi(k_x x + k_y y)} dx\, dy
+\]
+
+We can separate the integral into the product of two 1D Fourier transforms:
+
+\[
+\mathcal{F}\{\rho(x,y)\}(k_x, k_y) = \left(\int_{-1}^{1} e^{-i 2\pi k_x x} dx\right) \left(\int_{-1}^{1} e^{-i 2\pi k_y y} dy\right)
+\]
+
+Each of these integrals is a Fourier transform of the rectangular function:
+
+\[
+\int_{-1}^{1} e^{-i 2\pi k x} dx = \frac{\sin(2\pi k)}{\pi k} = 2 \cdot \text{sinc}(2k)
+\]
+with 
+\[
+ \text{sinc}(k) = \frac{\sin(\pi k)}{\pi k}
+\]
+
+To apply the Projection-Slice Theorem, we want to evaluate the 2D Fourier transform along the line \( k_x = k_y = \frac{k}{\sqrt{2}} \), corresponding to the \(45^\circ\) angle.
+
+
+Substituting \( k_x = \frac{k}{\sqrt{2}} \) and \( k_y = \frac{k}{\sqrt{2}} \) into the Fourier transform expression:
+
+\[
+\mathcal{F}\{\rho(x, y)\}\left(\frac{k}{\sqrt{2}}, \frac{k}{\sqrt{2}}\right) = 4 \cdot \text{sinc}\left(2 \cdot \frac{k}{\sqrt{2}}\right) \cdot \text{sinc}\left(2 \cdot \frac{k}{\sqrt{2}}\right)
+\]
+
+Simplifying the arguments of the sinc functions:
+
+The expression becomes:
+
+\[
+\mathcal{F}\{\rho(x, y)\}(k_x, k_y) = 4 \cdot \text{sinc}\left(\sqrt{2} k\right) \cdot \text{sinc}\left(\sqrt{2} k\right)
+\]
+
+Therefore, the The 2D Fourier transform of $\rho(x,y)$  at \(45^\circ\) angle is:
+
+\[
+\mathcal{F}\{\mathcal{R}\rho(t, 45^\circ)\}(k) = 4 \cdot  \text{sinc}^2\left(\sqrt{2} k\right) 
+\]
+
+We start first by calculating the Radon transform and then take its 1D Fourier transform:
+\[
+    \mathcal{F}\{ \mathcal{R} \rho \}(t, \theta) \}  =  \int_{-\infty}^{+\infty}  \left(  \int_{-\infty}^{+\infty} \int_{-\infty}^{+\infty} \rho(x, y) \delta(x \cos \theta + y \sin \theta - t) dx dy \right) e^{-i 2\pi k t} dt
+\]
+
+For \(\theta = 45^\circ\), and since \(\rho(x, y)\) is non-zero and equals 1 only when both \(|x| \leq 1\) and \(|y| \leq 1\), the equation becomes:
+
+\[
+\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) = \int_{-\infty}^{+\infty} \left( \int_{-1}^{1} \int_{-1}^{1} \delta(x \cos(45^\circ) + y \sin(45^\circ) - t) \, dx \, dy \right) e^{-i 2\pi k t} \, dt
+\]
+
+Swapping the order of integrals
+\[
+\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) = \int_{-1}^{1} \int_{-1}^{1} \left( \int_{-\infty}^{+\infty}  \delta(x \cos(45^\circ) + y \sin(45^\circ) - t)  e^{-i 2\pi k t} \, dt \right) \, dx \, dy 
+\]
+
+
+Substitute $t= \frac{x+y}{\sqrt{2}}$:
+\begin{align*}
+\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) &= \int_{-1}^{1} \int_{-1}^{1}   e^{-i 2\pi k \left( \frac{x+y}{\sqrt{2}} \right)}   \, dx \, dy \\
+ &=  \left( \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}} \right) x}   \, dx \right)  \left( \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}} \right) y}   \, dy \right) \\
+&=  \left( \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}}  \right) \; x}   \, dx \right)^2
+\end{align*}
+For  $\Pi\left(\frac{x}{2}\right)$; its Fourier transform is
+\begin{align*}
+ \int_{-1}^{1}   e^{-i 2\pi \left( \frac{k}{\sqrt{2}}  \right) \; x}  \; dx  = 2  \text{sinc}(2 \frac{k}{\sqrt{2}})
+  &= 2  \text{sinc}(\sqrt{2} k)
+\end{align*}
+
+Therefore
+\[
+\mathcal{F}\{\mathcal{R} \rho \}(t, 45^\circ) =  4 \cdot  \text{sinc}^2\left(\sqrt{2} k\right) 
+\]
+
+
+     \end{enumerate}
+            
+\section*{Question 2}
+
+\noindent
+Use Matlab to illustrate the projection-slice theorem by loading an MRI data set that is provided by Mathworks (\texttt{load mri}). 
+We are working on slices 15 and 20 and angles 0 and 90 degrees (20 points).
+
+\begin{enumerate}
+    \item Perform the Radon transform on slice 15 using angles from 0 to 179 degrees (Matlab has a built-in function).
+    \item Perform a 1D Fourier transform on the Radon-transformed signal from slice 15 for angles 0 and 90 degrees.
+    \item Perform a 2D Fourier transform of slices 15 and 20.
+    \item Compare the direct and projection-slice Fourier transforms for the two angles using slice 15. 
+    For comparison, you can use the magnitude signals and plot them on top of each other.\\
+    Answer: Looking at the two plots for angle 0 and 90 degrees; 
+    the blue and red lines overlap almost perfectly in the two plots. The direct 2D Fourier transform and the 1D Fourier transform of the Radon-transformed signals
+    are similar as stated by the projection-slice theorem.
+    
+    	
+    \item Use the 1D Fourier transform on the Radon-transformed signal from slice 15 (for angles 0 and 90 degrees) and 
+    compare it with the projection-slice Fourier transform of slice 20 (using the same angles and magnitude signal). 
+    Plot the results and compare them with question 4.
+    Make sure your code is fully documented and can be executed without error.\\
+    Answer: The green and red lines do not quite overlap  compared to the previous question.
+    They are the amplitude plots of  projection-slice Fourier transforms of different slices and we can expect differences in the amplitude of the signals.
+   \end{enumerate}
+
+\end{document}
