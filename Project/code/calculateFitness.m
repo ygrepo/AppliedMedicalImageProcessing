@@ -20,10 +20,10 @@ function fitness = calculateFitness(clusterCenters, options)
     
         % Update membership matrix U using vectorized operations
         exponent = 2 / (m - 1);
-        inv_distances = 1 ./ distances; % Element-wise inversion of distances
-        sum_inv_distances = sum(inv_distances .^ exponent, 2); % Sum across clusters for each data point
+        invDistances = 1 ./ distances; % Element-wise inversion of distances
+        sumInvDistances = sum(invDistances .^ exponent, 2); % Sum across clusters for each data point
     
-        U = (inv_distances .^ exponent) ./ sum_inv_distances; % Calculate membership values
+        U = (invDistances .^ exponent) ./ sumInvDistances; % Calculate membership values
     
         % Calculate partition index (SC)
         SC = calculatePartitionIndex(U, dataPoints, clusterCenters, m);

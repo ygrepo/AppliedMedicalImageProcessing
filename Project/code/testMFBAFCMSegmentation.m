@@ -13,15 +13,15 @@ data = double(sliceData(:)) / 255;  % Normalizing the pixel values
 
 nClusters = 4;
 
-opt = fcmOptions(NumClusters = nClusters);
+fcmOpt = fcmOptions(NumClusters = nClusters);
 disp('FCM Options')
-disp(opt)
+disp(fcmOpt)
 
 % Apply Fuzzy C-Means (FCM) clustering
-[fcmCenters, U] = fcm(data, opt);
+[fcmCenters, fcmU] = fcm(data, fcmOpt);
 
 % Get the cluster membership for each pixel
-[~, maxU] = max(U);  % Determine the cluster with the highest membership for each pixel
+[~, maxU] = max(fcmU);  % Determine the cluster with the highest membership for each pixel
 
 % Reshape the result back to the original image size
 segFCMImg = reshape(maxU, size(sliceData));
@@ -34,7 +34,7 @@ options.nBats = 30;
 options.itermax = 100;
 options.lowerBound = 0;
 options.upperBound = 1;
-options.nClusters = 4;
+options.nClusters = nClusters;
 options.m = 2; % Fuzziness exponent
 options.Qmin = 0;
 options.Qmax = 2;
@@ -59,6 +59,25 @@ segImgInresults = MFBAFCM(options);
 % Reshape the result back to the original image size
 segBATFCMImg = reshape(maxU, size(sliceData));
 
+%%
+fcmUT = fcmU';
+PC = calculatePartitionCoefficient(fcmUT);
+CE = calculateClassificationEntropy(fcmUT);
+SC = calculatePartitionIndex(fcmUT, data, ...
+    fcmCenters, fcmOpt.Exponent);
+S = fuzzySeparationIndex(data, fcmCenters,...
+    fcmU, fcmOpt.Exponent);
+fprintf("FCM: PC:%5.3f-CE:%5.3f-SC:%5.3f-S:%5.3f\n", PC,CE,SC, S);
+batFCMUT = segImgInresults.U';
+PC = calculatePartitionCoefficient(batFCMUT);
+CE = calculateClassificationEntropy(batFCMUT);
+SC = calculatePartitionIndex(batFCMUT, data, ...
+    segImgInresults.centers, options.m);
+S = fuzzySeparationIndex(data, segImgInresults.centers,...
+    segImgInresults.U, options.m);
+fprintf("BAT+FCM PC:%5.3f-CE:%5.3f-SC:%5.3f-S:%5.3f\n", PC,CE,SC, S);
+
+%%
 % ----- Fixed Colors for the Clusters -----
 fixedColors = [
     1 0 0;   % Red for Cluster 1
@@ -74,23 +93,23 @@ imshow(sliceData, []);  % Display the original MRI slice
 title('Original MRI Slice', 'FontSize', 20, 'FontWeight','bold');
 
 h2 = subplot(1, 3, 2);
-opt = struct();
-opt.title = ['Segmented MRI Slice with FCM ', num2str(nClusters), ' Clusters'];
+optPlot = struct();
+optPlot.title = ['Segmented MRI Slice with FCM ', num2str(nClusters), ' Clusters'];
 centers = [fcmCenters'];
-opt.centerColors = ['kx'];
-opt.fixedColors = fixedColors; 
-opt.centerNames = ['FCM Centers'];
-showSegmentedImg(sliceData, segFCMImg, centers, opt);
+optPlot.centerColors = ['kx'];
+optPlot.fixedColors = fixedColors; 
+optPlot.centerNames = ['FCM Centers'];
+showSegmentedImg(sliceData, segFCMImg, centers, optPlot);
 
 
 h3 = subplot(1, 3, 3);
-opt = struct();
-opt.title = ['Segmented MRI Slice with BAT + FCM ', num2str(nClusters), ' Clusters'];
+optPlot = struct();
+optPlot.title = ['Segmented MRI Slice with BAT + FCM ', num2str(nClusters), ' Clusters'];
 centers = [segImgInresults.batCenters];
-opt.centerColors = ['rx'];
-opt.fixedColors = fixedColors; 
-opt.centerNames = ['Bat Centers'];
-showSegmentedImg(sliceData, segBATFCMImg, centers, opt);
+optPlot.centerColors = ['rx'];
+optPlot.fixedColors = fixedColors; 
+optPlot.centerNames = ['Bat Centers'];
+showSegmentedImg(sliceData, segBATFCMImg, centers, optPlot);
 
 % 'Position' is [left, bottom, width, height]
 set(h1, 'Position', [0.05, 0.1, 0.25, 0.8]);  % Adjust as needed

@@ -1,5 +1,5 @@
 function CE = calculateClassificationEntropy(U)
-    % U: N x c matrix of membership values for each data point in each cluster
+    % U: c x N matrix of membership values for each data point in each cluster
     
     % Get the number of data points (N)
     N = size(U, 1);
