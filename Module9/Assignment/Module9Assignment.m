@@ -17,38 +17,124 @@ title('Slice 119');
 hold off;
 
 %% Generate noisy images ----
-scale10 = 10;
-volscale10 = applyNoise(vol, scale10);
-scale20 = 20;
-volscale20 = applyNoise(vol, scale20);
-scale30 = 30;
-volscale30 = applyNoise(vol, scale30);
-%% Gaussian filtering of noisy images ----
-sigmaGaussianFilter = .1;
+noisyImages = {};
+noisyImages{1} = applyNoise(vol, 10);
+noisyImages{2} = applyNoise(vol, 20);
+noisyImages{3} = applyNoise(vol, 30);
+% Gaussian filtering of noisy images ----
+gaussianFilterSigma = .1;
 gaussianDenoisedVols = {};
-gaussianDenoisedVols{1} = imgaussfilt3(volscale10, sigmaGaussianFilter);
-gaussianDenoisedVols{2} = imgaussfilt3(volscale20, sigmaGaussianFilter);
-gaussianDenoisedVols{3} = imgaussfilt3(volscale30, sigmaGaussianFilter);
-%% Median Filter ----
+gaussianDenoisedVols{1} = imgaussfilt3(noisyImages{1}, sigmaGaussianFilter);
+gaussianDenoisedVols{2} = imgaussfilt3(noisyImages{2}, sigmaGaussianFilter);
+gaussianDenoisedVols{3} = imgaussfilt3(noisyImages{3}, sigmaGaussianFilter);
+% Median Filter of noisy images ----
 medianFilterDenoisedVols = {};
-medianFilterDenoisedVols{1} = medfilt3(volscale10);
-medianFilterDenoisedVols{2} = medfilt3(volscale20);
-medianFilterDenoisedVols{3} = medfilt3(volscale30);
-%% BilateralFilterGray ----
+medianFilterDenoisedVols{1} = medfilt3(noisyImages{1});
+medianFilterDenoisedVols{2} = medfilt3(noisyImages{2});
+medianFilterDenoisedVols{3} = medfilt3(noisyImages{3});
+% BilateralFilterGray of noisy images ----
 sigmaD = 2;  % Standard deviation for the domain (spatial) Gaussian kernel
 sigmaR = 25; % Standard deviation for the range Gaussian kernel
 bilateralFilterDenoisedVols = {};
-bilateralFilterDenoisedVols{1} =computeBilateralFilter(volscale10, sigmaD, sigmaR);
-bilateralFilterDenoisedVols{2} =computeBilateralFilter(volscale20, sigmaD, sigmaR);
-bilateralFilterDenoisedVols{3} =computeBilateralFilter(volscale30, sigmaD, sigmaR);
-%% Perona-Malik Filter ----
+bilateralFilterDenoisedVols{1} =computeBilateralFilter(noisyImages{1}, sigmaD, sigmaR);
+bilateralFilterDenoisedVols{2} =computeBilateralFilter(noisyImages{2}, sigmaD, sigmaR);
+bilateralFilterDenoisedVols{3} =computeBilateralFilter(noisyImages{3}, sigmaD, sigmaR);
+% Perona-Malik Filter of noisy images ----
 alpha = 0.25;   % Update rate
 kappa = 15;     % Smoothness parameter
 T = 10;         % Number of iterations
 peronaMalikFilterDenoisedVols = {};
-peronaMalikFilterDenoisedVols{1} =computePeronaMalikFilter(volscale10, alpha, kappa, T);
-peronaMalikFilterDenoisedVols{2} =computePeronaMalikFilter(volscale20, alpha, kappa, T);
-peronaMalikFilterDenoisedVols{3} =computePeronaMalikFilter(volscale30, alpha, kappa, T);
+peronaMalikFilterDenoisedVols{1} =computePeronaMalikFilter(noisyImages{1}, alpha, kappa, T);
+peronaMalikFilterDenoisedVols{2} =computePeronaMalikFilter(noisyImages{2}, alpha, kappa, T);
+peronaMalikFilterDenoisedVols{3} =computePeronaMalikFilter(noisyImages{3}, alpha, kappa, T);
+%% Define the region of interest (ROI) ----
+xStart = 50;
+yStart = 100;
+width = 75;
+height = 75;
+sliceNumbers = [102, 119];
+noisyRois = getROI(noisyImages, sliceNumbers, xStart, yStart, width, height);
+gaussianDenoisedRois = getROI(gaussianDenoisedVols,... 
+    sliceNumbers, xStart, yStart, width, height);
+medianFilterDenoisedRois = getROI(medianFilterDenoisedVols,...
+    sliceNumbers, xStart, yStart, width, height);
+bilateralFilterDenoisedRois = getROI(bilateralFilterDenoisedVols,...
+    sliceNumbers, xStart, yStart, width, height);
+peronaMalikFilterDenoisedRois = getROI(peronaMalikFilterDenoisedVols,...
+    sliceNumbers, xStart, yStart, width, height);
+
+%% Before and After Filtering, Noise scale = 10 ----
+noiseIndex = 1;
+scaleValue = 10;
+medianSupportSize = "(3x3x3)";
+medianPadopt = "Symmetric";
+fontSize = 14;
+titleText = sprintf('Noise, Scale=%d, Before and After Filtering for ROIS in Slices 102 and 119', scaleValue);
+showROIS(noiseIndex, ...
+    scaleValue,...
+    titleText,....
+    noisyRois,....
+    gaussianFilterSigma,...
+    gaussianDenoisedRois, ...
+    medianSupportSize,...
+    medianPadopt,...
+    medianFilterDenoisedRois, ...
+    sigmaD,...
+    sigmaR,...
+    bilateralFilterDenoisedRois, ...
+    alpha,...
+    kappa,...
+    T,...
+    peronaMalikFilterDenoisedRois,...
+    fontSize);
+%% Before and After Filtering, Noise scale = 20 ----
+noiseIndex = 1;
+scaleValue = 20;
+medianSupportSize = "(3x3x3)";
+medianPadopt = "Symmetric";
+fontSize = 14;
+titleText = sprintf('Noise, Scale=%d, Before and After Filtering for ROIS in Slices 102 and 119', scaleValue);
+showROIS(noiseIndex, ...
+    scaleValue,...
+    titleText,....
+    noisyRois,....
+    gaussianFilterSigma,...
+    gaussianDenoisedRois, ...
+    medianSupportSize,...
+    medianPadopt,...
+    medianFilterDenoisedRois, ...
+    sigmaD,...
+    sigmaR,...
+    bilateralFilterDenoisedRois, ...
+    alpha,...
+    kappa,...
+    T,...
+    peronaMalikFilterDenoisedRois,...
+    fontSize);
+%% Before and After Filtering, Noise scale = 30 ----
+noiseIndex = 1;
+scaleValue = 30;
+medianSupportSize = "(3x3x3)";
+medianPadopt = "Symmetric";
+fontSize = 14;
+titleText = sprintf('Noise, Scale=%d, Before and After Filtering for ROIS in Slices 102 and 119', scaleValue);
+showROIS(noiseIndex, ...
+    scaleValue,...
+    titleText,....
+    noisyRois,....
+    gaussianFilterSigma,...
+    gaussianDenoisedRois, ...
+    medianSupportSize,...
+    medianPadopt,...
+    medianFilterDenoisedRois, ...
+    sigmaD,...
+    sigmaR,...
+    bilateralFilterDenoisedRois, ...
+    alpha,...
+    kappa,...
+    T,...
+    peronaMalikFilterDenoisedRois,...
+    fontSize);
 
 
 %% applyNoise ----
@@ -252,7 +338,113 @@ for i = 1:dim3
     filteredI(:, :, i) = slice;  % Store the filtered slice back
 end
 end
+%%  get Region of Interest (ROI) ----
+function volROIS = getROI(vols, sliceNumbers, xStart, yStart, width, height)
 
+N= size(vols, 1);
+volROIS = cell(N, 1);
+% Extract the subregion for both original and smoothed slices
+for i=1:N
+    vol = vols{i};
+    rois = cell(length(sliceNumbers), 1);
+    for j=1:length(sliceNumbers)
+        sliceNumber = sliceNumbers(j);
+        slice = vol(:,:,sliceNumber);
+        rois{j} = slice(yStart:yStart+height-1,...
+        xStart:xStart+width-1);
+    end
+    volROIS{i} = rois;
+end
+end
+
+%% Plot Functions ----
+function showROIS(noiseIndex, ...
+    noisyScale,...
+    titleText,....
+    noisyRois,....
+    gaussianFilterSigma,...
+    gaussianDenoisedRois, ...
+    medianSupportSize,...
+    medianPadopt,...
+    medianFilterDenoisedRois, ...
+    sigmaD,...
+    sigmaR,...
+    bilateralFilterDenoisedRois, ...
+    alpha,...
+    kappa,...
+    T,...
+    peronaMalikFilterDenoisedRois,...
+    fontSize)
+
+% Create a figure and a tiled layout with two rows
+figure;
+t = tiledlayout(2, 5, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+% Add a title for the entire figure
+title(t, titleText, 'FontSize', 24, 'FontWeight', 'bold');
+
+% Show images for slice 102 in the first row
+sliceIndex = 1;
+showBeforeAfter(noiseIndex, sliceIndex, noisyScale, noisyRois, gaussianFilterSigma, ...
+    gaussianDenoisedRois, medianSupportSize, medianPadopt, medianFilterDenoisedRois, ...
+    sigmaD, sigmaR, bilateralFilterDenoisedRois, alpha, kappa, T,...
+    peronaMalikFilterDenoisedRois, fontSize);
+
+% Show images for slice 119 in the second row
+sliceIndex = 2;
+showBeforeAfter(noiseIndex, sliceIndex, noisyScale, noisyRois, gaussianFilterSigma, ...
+    gaussianDenoisedRois, medianSupportSize, medianPadopt, medianFilterDenoisedRois, ...
+    sigmaD, sigmaR, bilateralFilterDenoisedRois, alpha, kappa, T,...
+    peronaMalikFilterDenoisedRois, fontSize);
+
+end
+
+% showBeforeAfter ----
+function showBeforeAfter(noiseIndex, sliceIndex, noisyScale, noisyRois, gaussianFilterSigma, ...
+    gaussianDenoisedRois, medianSupportSize, medianPadopt, medianFilterDenoisedRois, sigmaD, sigmaR, ...
+    bilateralFilterDenoisedRois, alpha, kappa, T, peronaMalikFilterDenoisedRois, fontSize)
+
+% Noisy Image
+nexttile;
+roi = noisyRois{noiseIndex};
+roi = roi{sliceIndex};
+imshow(roi, []);  % Display the original ROI from slice sliceNumber
+imageText = sprintf('Noisy Image\nscale:%d', noisyScale);
+title(imageText, 'FontSize', fontSize,'FontWeight','bold');
+
+% Gaussian Filter
+nexttile;
+roi = gaussianDenoisedRois{noiseIndex};
+roi = roi{sliceIndex};
+imshow(roi, []);  % Display Gaussian Filter ROI from slice sliceNumber
+imageText = sprintf('Gaussian Filter\nsigma:%3.2f', gaussianFilterSigma);
+title(imageText, 'FontSize', fontSize,'FontWeight','bold');
+
+% Median Filter
+nexttile;
+roi = medianFilterDenoisedRois{noiseIndex};
+roi = roi{sliceIndex};
+imshow(roi, []);  % Display Median Filter ROI from sliceNumber
+imageText = sprintf('Median Filtering\nSupport:%s-Padding:%s', medianSupportSize, medianPadopt);
+title(imageText, 'FontSize', fontSize,'FontWeight','bold');
+
+% Bilateral Filter
+nexttile;
+roi = bilateralFilterDenoisedRois{noiseIndex};
+roi = roi{sliceIndex};
+imshow(roi, []);  % Display Bilateral Filter ROI from sliceNumber
+imageText = sprintf('Bilateral Filter\nDomain Std:%4.2f-Range Std:%4.2f', sigmaD, sigmaR);
+title(imageText, 'FontSize', fontSize,'FontWeight','bold');
+
+% Perona-Malik Filter
+nexttile;
+roi = peronaMalikFilterDenoisedRois{noiseIndex};
+roi = roi{sliceIndex};
+imshow(roi, []);  % Display Perona-Malik Filter ROI from sliceNumber
+imageText = sprintf('Perona-Malik Filter\nalpha:%5.2f-kappa:%5.2f,T=%d', alpha, kappa, T);
+title(imageText, 'FontSize', fontSize,'FontWeight','bold');
+
+end
 
 %% showSlices ----
 function showSlices(titletext_ROI102,...
