@@ -1,36 +1,4 @@
-%%
-% vol = load('mri');
-% %siz = vol.siz;
-% vol = squeeze(vol.D);   
-% sigma = 2;
-% 
-% volSmooth = imgaussfilt3(vol, sigma);
-% figure
-% montage(vol)
-% figure
-% 
-% montage(reshape(volSmooth,siz(1),siz(2),1,siz(3)))
-% % title('Gaussian filtered image volume')
 
-%%
-% clearvars
-% clc
-% load mristack
-% alpha = 0.25;   % Update rate
-% kappa = 15;     % Smoothness parameter
-% T = 10;         % Number of iterations
-% diffusedImage = computePeronaMalikFilter(mristack, alpha, kappa, T);
-% imshowpair(mristack(:,:,10),diffusedImage(:,:,10),'montage')
-% title('Noisy Image (Left) vs. Anisotropic-Diffusion-Filtered Image (Right)')
-%%
-% clc
-% I = imread('cameraman.tif');
-% %imshow(I)
-% sigmaD = 2;
-% sigmaR = 50;
-% J = computeBilateralFilter(I, sigmaD, sigmaR);
-% imshowpair(I,J,'montage')
-%%
 clearvars
 clc
 vol = niftiread('data/sub-11_T1w.nii.gz');
@@ -39,18 +7,7 @@ vol = flip (permute(vol, [2 1 3]), 1);
 %%
 figure
 imshow(double(vol(:,:,102)), []);
-%% applyNoise ----
-% I = double (vol(:,:,102));
-% dim = size(I);
-% s = 10;
-% x = s .* randn(dim) + I;
-% y = s .* randn(dim);
-% Innoisy = sqrt(x.^2+y.^2);
-% figure
-% imshow(Innoisy, []);
-
 %% Look at Slice 102 and Slice 119 ---
-%sliceViewer(volsigma10);
 sliceNumber = 102;
 % Display slice 102 using imshow
 figure;
@@ -71,21 +28,6 @@ noisyImages{1} = applyNoise(vol, 10);
 noisyImages{2} = applyNoise(vol, 20);
 noisyImages{3} = applyNoise(vol, 30);
 showNoisyImages(noisyImages);
-%%
-% alpha = 0.25;   % Update rate
-% kappa = 15;     % Smoothness parameter
-% T = 10;         % Number of iterations
-% I = noisyImages{1};
-% diffusedImage = computePeronaMalikFilter(I, alpha, kappa, T);
-% imshowpair(I(:,:,119),diffusedImage(:,:,119),'montage')
-% title('Noisy Image (Left) vs. Anisotropic-Diffusion-Filtered Image (Right)')
-%%
-% sigmaD = 2;  % Standard deviation for the domain (spatial) Gaussian kernel
-% sigmaR = 50; % Standard deviation for the range Gaussian kernel
-% I = noisyImages{1};
-% diffusedImage = computeBilateralFilter(I, sigmaD, sigmaR);
-% imshowpair(I(:,:,119),diffusedImage(:,:,119),'montage')
-% title('Noisy Image (Left) vs. Bilateral-Filtered Image (Right)')
 %%
 % Gaussian filtering of noisy images ----
 gaussianFilterSigma = 1;
@@ -137,7 +79,6 @@ peronaMalikFilterDenoisedRois = getROI(peronaMalikFilterDenoisedVols,...
 clc
 figure
 I = noisyRois{1};
-%sliceViewer(noisyImages{1});
 imshowpair(I{1},I{2},'montage')
 title('Noisy ROI, 102, 119')
 
@@ -213,100 +154,31 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-%%
-
-slices = [102,119];
-quantifyFilterPerformance(gaussianDenoisedVols{1}, vol, slices)
-
-%%
-function quantifyFilterPerformance(smoothedI, origI, slices)
-    % Check that the input volumes have the same size
-    if ~isequal(size(smoothedI), size(origI))
-        error('The dimensions of smoothedI and origI must match.');
-    end
-    
-    % Compute the squared error per voxel
-    E = (smoothedI - double(origI)).^2;
-    
-    % Display the squared error for each of the specified slices
-    for i = 1:length(slices)
-        sliceNumber = slices(i);
-        
-        % Extract the slice from the error volume
-        errorSlice = E(:, :, sliceNumber);
-        
-        % Display the error slice using imagesc
-        figure;
-        imagesc(errorSlice);
-        colormap(jet); % Use a colormap for visualization
-        colorbar;      % Add a colorbar to indicate intensity values
-        title(['Squared Error - Slice ', num2str(sliceNumber)]);
-        xlabel('X-axis');
-        ylabel('Y-axis');
-        axis image; % Ensure the aspect ratio is correct
-       
-        clim([0, max(errorSlice(:))]); % Optional: set a range based on max error
-    end
-end
-%%
-plotMSE(double(vol), noisyImages, gaussianDenoisedVols)
-%%
-function plotMSE(origI, noiseLevels, filters)
-
-end
-
-function plotMSE2(origI, noiseLevels, filters)
-    % origI: the original non-noisy image volume
-    % noiseLevels: a cell array containing image volumes with different noise levels
-    % filters: a cell array of function handles for the filters to apply
-
-    % Initialize variables
-    numNoiseLevels = length(noiseLevels);
-    numFilters = length(filters);
-    mseValues = zeros(numNoiseLevels, numFilters);
-    
-    % Iterate over each noise level
-    for n = 1:numNoiseLevels
-        noisyVol = noiseLevels{n};
-        
-        % Iterate over each filter
-        for f = 1:numFilters
-            filterFunc = filters{f};
-            
-            % Apply the filter to the noisy volume
-            I_smooth = filterFunc(noisyVol);
-            
-            % Calculate the Mean Square Error (MSE)
-            mse = sqrt(mean((I_smooth(:) - origI(:)).^2));
-            mseValues(n, f) = mse;
-        end
-    end
-    
-    % Plot the MSE values
-    figure;
-    hold on;
-    markers = {'-o', '-s', '-^', '-d'}; % Different markers for different filters
-    for f = 1:numFilters
-        plot(1:numNoiseLevels, mseValues(:, f), markers{f}, 'LineWidth', 2);
-    end
-    hold off;
-    
-    % Customize the plot
-    xlabel('Noise Level');
-    ylabel('MSE');
-    title('Mean Square Error (MSE) for Different Noise Levels and Filters');
-    legend({'Filter 1', 'Filter 2', 'Filter 3', 'Filter 4'}, 'Location', 'best');
-    grid on;
-end
-
+%% Voxel Squared Error and Plot ----
+eValues = getFilterPerformance(vol,....
+    gaussianDenoisedVols, ...
+    medianFilterDenoisedVols, ...
+    bilateralFilterDenoisedVols, ...
+    peronaMalikFilterDenoisedVols);
+%% Noise Level 10, Voxel Squared Error - Slices (102,119) ---
+titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 10);
+plotFilterPerformances(titleText, 1, eValues);
+%% Noise Level 20, Voxel Squared Error - Slices (102,119) ---
+titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 20);
+plotFilterPerformances(titleText, 2, eValues);
+%% Noise Level 30, Voxel Squared Error - Slices (102,119) ---
+titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 30);
+plotFilterPerformances(titleText, 3, eValues);
+%% MSE and Plot ----
+mseValues = getRMSE(vol,....
+    gaussianDenoisedVols, ...
+    medianFilterDenoisedVols, ...
+    bilateralFilterDenoisedVols, ...
+    peronaMalikFilterDenoisedVols);
+plotMSE(mseValues);
 
 %% applyNoise ----
 function Innoisy = applyNoise(I, s)
-% I = flip(permute(I, [2 1 3]), 1);  % Adjust orientation if needed
-% I = double(I);
-% dim = size(I);
-% Innoisy = I + s * randn(dim);  % Add Gaussian noise directly
-% I = flip (permute(I, [2 1 3]), 1);
 I = double (I);
 dim = size(I);
 x = s .* randn(dim) + I;
@@ -409,55 +281,6 @@ function filteredI = BilateralFilterGraySep(I, sigmaD, sigmaR)
         end
     end
 end
-function I_filtered = BilateralFilterGrayOptimized(I, sigma_d, sigma_r)
-    % Input:
-    %   I        - input grayscale image of size M x N
-    %   sigma_d  - standard deviation for the domain (spatial) Gaussian kernel
-    %   sigma_r  - standard deviation for the range Gaussian kernel
-    % Output:
-    %   I_filtered - output filtered grayscale image of size M x N
-    
-    % Convert image to double for precision
-    I = double(I);
-    
-    % Get the size of the image
-    [M, N] = size(I);
-    
-    % Compute the spatial Gaussian kernel size K
-    K = ceil(3.5 * sigma_d);
-    
-    % Create a grid of distances (m^2 + n^2) for the spatial Gaussian (domain kernel)
-    [X, Y] = meshgrid(-K:K, -K:K);
-    spatial_weights = exp(-(X.^2 + Y.^2) / (2 * sigma_d^2));
-    
-    % Initialize the output image
-    I_filtered = zeros(M, N);
-    
-    % Pad the image to handle borders
-    padded_I = padarray(I, [K K], 'symmetric');
-    
-    % For each pixel in the image
-    for u = 1:M
-        for v = 1:N
-            % Extract the local neighborhood around pixel (u,v)
-            local_region = padded_I(u:u+2*K, v:v+2*K);
-            
-            % Compute the range Gaussian weights based on intensity differences
-            intensity_diff = local_region - I(u,v);
-            range_weights = exp(-(intensity_diff.^2) / (2 * sigma_r^2));
-            
-            % Compute the combined bilateral weights
-            bilateral_weights = spatial_weights .* range_weights;
-            
-            % Normalize the weights
-            normalized_weights = bilateral_weights / sum(bilateral_weights(:));
-            
-            % Compute the filtered intensity as the weighted sum of the local neighborhood
-            I_filtered(u, v) = sum(sum(normalized_weights .* local_region));
-        end
-    end
-end
-
 
 %% Perona-Malik Filter ----
 function I = PeronaMalik(I, alpha, kappa, T)
@@ -540,9 +363,7 @@ filteredI = zeros(size(I));  % Initialize an array to store the filtered image
     slice = I(:, :, i);  % Extract the ith slice
     slice = BilateralFilterGraySep(slice, sigmaD, sigmaR);  % Apply  filter
     filteredI(:, :, i) = slice;  % Store the filtered slice back
-end
-%filteredI = imbilatfilt(I, sigmaD, sigmaR);
-%filteredI = BilateralFilterGraySep(I, sigmaD, sigmaR);
+ end
 end
 
 %% computePeronaMalikFilter ----
@@ -588,7 +409,7 @@ for i = 1:N
 end
 end
 
-%% Plot Functions ----
+%% Plot Function: showROIS ----
 
 % showROIS ----
 function showROIS(noiseIndex, ...
@@ -763,5 +584,254 @@ title(titletext_smoothedROI119,...
     'FontSize', fontSize,'FontWeight','bold');
 
 
+end
+%% Voxel Squared Error Difference and Plots ----
+function eValues = getFilterPerformance(origVol,....
+    gaussianDenoisedVols, ...
+    medianFilterDenoisedVols, ...
+    bilateralFilterDenoisedVols, ...
+    peronaMalikFilterDenoisedVols)
+% origVol: the original non-noisy image volume
+% gaussianDenoisedVols, medianFilterDenoisedVols, ...
+% bilateralFilterDenoisedVols, peronaMalikFilterDenoisedVols: different
+% denoised volumes of the orignal volume using four filters:
+% Gaussian, Median, Bilateral and Peron-Malik.
+
+numNoiseLevels = size(gaussianDenoisedVols, 2);
+eValues = cell(numNoiseLevels, 4);
+origVol = double(origVol);
+% Iterate over each noise level
+for n = 1:numNoiseLevels
+   % Calculate the Mean Square Error (MSE)
+   smoothedI = gaussianDenoisedVols{n};
+   % Compute the squared error per voxel
+   E = (smoothedI - origVol).^2;
+   eValues{n, 1} = E;
+   smoothedI = medianFilterDenoisedVols{n};
+   E = (smoothedI - origVol).^2;
+   eValues{n, 2} = E;
+   smoothedI = bilateralFilterDenoisedVols{n};
+   E = (smoothedI - origVol).^2;
+   eValues{n, 3} = E;
+   smoothedI = peronaMalikFilterDenoisedVols{n};
+   E = (smoothedI - origVol).^2;
+   eValues{n, 4} = E;
+end
+
+end
+
+function plotFilterPerformances(titleText, noiseLevelIndex, eValues)
+figure;
+fontSize = 14;
+tickFontSize = 12;
+t = tiledlayout(2, 4, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+% Add a title for the entire figure
+title(t, titleText, 'FontSize', 24, 'FontWeight', 'bold');
+
+% Slice 102
+sliceNumber = 102;
+nexttile;
+% Gaussian Filter
+E = eValues{noiseLevelIndex, 1};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); % Use a colormap for visualization
+colorbar;      % Add a colorbar to indicate intensity values
+title(['Gaussian Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xLabelText = 'X-axis Voxel Squared Error Difference';
+xlabel(xLabelText, 'FontSize', fontSize);
+yLabelText = 'y-axis Voxel Squared Error Difference';
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image; % Ensure the aspect ratio is correct
+clim([0, max(errorSlice(:))]); 
+
+
+nexttile;
+% Median Filter
+E = eValues{noiseLevelIndex, 2};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); 
+colorbar;      
+title(['Median Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xlabel(xLabelText, 'FontSize', fontSize);
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image; 
+clim([0, max(errorSlice(:))]); 
+
+nexttile;
+% Bilateral Filter
+E = eValues{noiseLevelIndex, 3};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); 
+colorbar;     
+title(['Bilateral Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xlabel(xLabelText, 'FontSize', fontSize);
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image;
+clim([0, max(errorSlice(:))]); 
+
+nexttile;
+% Perona-Malik Filter
+E = eValues{noiseLevelIndex, 4};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); 
+colorbar;      
+title(['Perona-Malik Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xlabel(xLabelText, 'FontSize', fontSize);
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image; 
+clim([0, max(errorSlice(:))]); 
+
+% Slice 119
+sliceNumber = 119;
+nexttile;
+% Gaussian Filter
+E = eValues{noiseLevelIndex, 1};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); % Use a colormap for visualization
+colorbar;      % Add a colorbar to indicate intensity values
+title(['Gaussian Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xlabel(xLabelText, 'FontSize', fontSize);
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image; % Ensure the aspect ratio is correct
+clim([0, max(errorSlice(:))]); 
+
+nexttile;
+% Median Filter
+E = eValues{noiseLevelIndex, 2};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); 
+colorbar;      
+title(['Median Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xlabel(xLabelText, 'FontSize', fontSize);
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image; 
+clim([0, max(errorSlice(:))]); 
+
+nexttile;
+% Bilateral Filter
+E = eValues{noiseLevelIndex, 3};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); 
+colorbar;     
+title(['Bilateral Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xlabel(xLabelText, 'FontSize', fontSize);
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image;
+clim([0, max(errorSlice(:))]); 
+
+nexttile;
+% Perona-Malik Filter
+E = eValues{noiseLevelIndex, 4};
+% Extract the slice from the error volume
+errorSlice = E(:, :, sliceNumber);
+imagesc(errorSlice);
+colormap(jet); 
+colorbar;      
+title(['Perona-Malik Filter-Slice:', num2str(sliceNumber)], ...
+    'FontSize', fontSize,'FontWeight','bold');
+xlabel(xLabelText, 'FontSize', fontSize);
+ylabel(yLabelText, 'FontSize', fontSize);
+ax = gca; % Get the current axes handle
+set(ax, 'FontSize', tickFontSize); % Set font size for ticks
+axis image; 
+clim([0, max(errorSlice(:))]); 
+
+end
+
+
+%% mse and plot ----
+function mseValues = getRMSE(origVol,....
+    gaussianDenoisedVols, ...
+    medianFilterDenoisedVols, ...
+    bilateralFilterDenoisedVols, ...
+    peronaMalikFilterDenoisedVols)
+% origVol: the original non-noisy image volume
+% gaussianDenoisedVols, medianFilterDenoisedVols, ...
+% bilateralFilterDenoisedVols, peronaMalikFilterDenoisedVols: different
+% denoised volumes of the orignal volume using four filters:
+% Gaussian, Median, Bilateral and Peron-Malik.
+% 
+numNoiseLevels = size(gaussianDenoisedVols, 2);
+mseValues = zeros(numNoiseLevels, 4);
+
+% Iterate over each noise level
+for n = 1:numNoiseLevels
+   % Calculate the Mean Square Error (MSE)
+   smoothedI = gaussianDenoisedVols{n};
+   mse = sqrt(mean((smoothedI(:) - origVol(:)).^2));
+   mseValues(n, 1) = mse;
+   smoothedI = medianFilterDenoisedVols{n};
+   mse = sqrt(mean((smoothedI(:) - origVol(:)).^2));
+   mseValues(n, 2) = mse;
+   smoothedI = bilateralFilterDenoisedVols{n};
+   mse = sqrt(mean((smoothedI(:) - origVol(:)).^2));
+   mseValues(n, 3) = mse;
+   smoothedI = peronaMalikFilterDenoisedVols{n};
+   mse = sqrt(mean((smoothedI(:) - origVol(:)).^2));
+   mseValues(n, 4) = mse;
+end
+
+end
+
+function plotMSE(mseValues)
+
+    % Initialize variables    
+    noiseLevels = categorical({'10', '20', '30'});
+    
+    % Plot the MSE values
+    figure('Position', [100, 100, 800, 600]);
+
+    hold on;
+    markers = {'-o', '-s', '-^', '-d'}; % Different markers for different filters
+    numFilters = size(mseValues, 2);
+    for f = 1:numFilters
+        plot(noiseLevels, mseValues(:, f), markers{f}, 'LineWidth', 2);
+    end
+    hold off;
+    
+    % Customize the plot
+    xlabel('Noise Level'); % Label for the x-axis
+    ylabel('MSE');         % Label for the y-axis
+    title('Mean Square Error (MSE) for Different Noise Levels and Filters',...
+    'FontSize', 20,'FontWeight','bold');
+    filterNames = {'Gaussian Filter', 'Median Filter', 'Bilateral Filter', 'Perona-Malik Filter'};
+    legend(filterNames, 'Location', 'best'); 
+    grid on;
 end
 
