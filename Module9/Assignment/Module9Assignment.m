@@ -45,7 +45,7 @@ bilateralFilterDenoisedVols = {};
 bilateralFilterDenoisedVols{1} =computeBilateralFilter(noisyImages{1}, sigmaD, sigmaR);
 bilateralFilterDenoisedVols{2} =computeBilateralFilter(noisyImages{2}, sigmaD, sigmaR);
 bilateralFilterDenoisedVols{3} =computeBilateralFilter(noisyImages{3}, sigmaD, sigmaR);
-%%
+
 % Perona-Malik Filter of noisy images ----
 alpha = 0.25;   % Update rate
 kappa = 15;     % Smoothness parameter
@@ -54,11 +54,10 @@ peronaMalikFilterDenoisedVols = {};
 peronaMalikFilterDenoisedVols{1} =computePeronaMalikFilter(noisyImages{1}, alpha, kappa, T);
 peronaMalikFilterDenoisedVols{2} =computePeronaMalikFilter(noisyImages{2}, alpha, kappa, T);
 peronaMalikFilterDenoisedVols{3} =computePeronaMalikFilter(noisyImages{3}, alpha, kappa, T);
-%% Define the region of interest (ROI) ----
+
+% Define the region of interest (ROI) ----
 xStart = [80, 110];
 yStart = [50, 80];
-% xStart = [80, 110];
-% yStart = [50, 80];
 width = [50, 50];
 height = [50, 50];
 sliceNumbers = [102, 119];
@@ -71,14 +70,15 @@ bilateralFilterDenoisedRois = getROI(bilateralFilterDenoisedVols,...
     sliceNumbers, xStart, yStart, width, height);
 peronaMalikFilterDenoisedRois = getROI(peronaMalikFilterDenoisedVols,...
     sliceNumbers, xStart, yStart, width, height);
-%% Check ROIS of first noise level images (10) ----
+
+% Check ROIS of first noise level images (10) ----
 clc
 figure
 I = noisyRois{1};
 imshowpair(I{1},I{2},'montage')
 title('Noisy ROI, 102, 119')
 
-%% Before and After Filtering, Noise scale = 10 ----
+% Before and After Filtering, Noise scale = 10 ----
 noiseIndex = 1;
 scaleValue = 10;
 medianSupportSize = "(3x3x3)";
@@ -102,7 +102,7 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-%% Before and After Filtering, Noise scale = 20 ----
+% Before and After Filtering, Noise scale = 20 ----
 noiseIndex = 2;
 scaleValue = 20;
 medianSupportSize = "(3x3x3)";
@@ -126,7 +126,7 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-%% Before and After Filtering, Noise scale = 30 ----
+% Before and After Filtering, Noise scale = 30 ----
 noiseIndex = 3;
 scaleValue = 30;
 medianSupportSize = "(3x3x3)";
@@ -150,22 +150,22 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-%% Voxel Squared Error and Plot ----
+% Voxel Squared Error and Plot ----
 eValues = getFilterPerformance(vol,....
     gaussianDenoisedVols, ...
     medianFilterDenoisedVols, ...
     bilateralFilterDenoisedVols, ...
     peronaMalikFilterDenoisedVols);
-%% Noise Level 10, Voxel Squared Error - Slices (102,119) ---
+% Noise Level 10, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 10);
 plotFilterPerformances(titleText, 1, eValues);
-%% Noise Level 20, Voxel Squared Error - Slices (102,119) ---
+% Noise Level 20, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 20);
 plotFilterPerformances(titleText, 2, eValues);
-%% Noise Level 30, Voxel Squared Error - Slices (102,119) ---
+% Noise Level 30, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 30);
 plotFilterPerformances(titleText, 3, eValues);
-%% MSE and Plot ----
+% MSE and Plot ----
 mseValues = getRMSE(vol,....
     gaussianDenoisedVols, ...
     medianFilterDenoisedVols, ...
