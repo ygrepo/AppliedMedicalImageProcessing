@@ -3,11 +3,7 @@ clearvars
 clc
 vol = niftiread('data/sub-11_T1w.nii.gz');
 vol = flip (permute(vol, [2 1 3]), 1);
-
-%%
-figure
-imshow(double(vol(:,:,102)), []);
-%% Look at Slice 102 and Slice 119 ---
+% Look at Slice 102 and Slice 119 ---
 sliceNumber = 102;
 % Display slice 102 using imshow
 figure;
@@ -22,26 +18,26 @@ imshow(vol(:,:,sliceNumber), []);
 title('Slice 119');
 hold off;
 
-%% Generate noisy images ----
+% Generate noisy images ----
 noisyImages = {};
 noisyImages{1} = applyNoise(vol, 10);
 noisyImages{2} = applyNoise(vol, 20);
 noisyImages{3} = applyNoise(vol, 30);
 showNoisyImages(noisyImages);
-%%
+
 % Gaussian filtering of noisy images ----
 gaussianFilterSigma = 1;
 gaussianDenoisedVols = {};
 gaussianDenoisedVols{1} = imgaussfilt3(noisyImages{1}, gaussianFilterSigma);
 gaussianDenoisedVols{2} = imgaussfilt3(noisyImages{2}, gaussianFilterSigma);
 gaussianDenoisedVols{3} = imgaussfilt3(noisyImages{3}, gaussianFilterSigma);
-%%
+
 % Median Filter of noisy images ----
 medianFilterDenoisedVols = {};
 medianFilterDenoisedVols{1} = medfilt3(noisyImages{1});
 medianFilterDenoisedVols{2} = medfilt3(noisyImages{2});
 medianFilterDenoisedVols{3} = medfilt3(noisyImages{3});
-%%
+
 % BilateralFilterGray of noisy images ----
 sigmaD = 2;  % Standard deviation for the domain (spatial) Gaussian kernel
 sigmaR = 51; % Standard deviation for the range Gaussian kernel
@@ -75,7 +71,7 @@ bilateralFilterDenoisedRois = getROI(bilateralFilterDenoisedVols,...
     sliceNumbers, xStart, yStart, width, height);
 peronaMalikFilterDenoisedRois = getROI(peronaMalikFilterDenoisedVols,...
     sliceNumbers, xStart, yStart, width, height);
-%%
+%% Check ROIS of first noise level images (10) ----
 clc
 figure
 I = noisyRois{1};
@@ -179,6 +175,7 @@ plotMSE(mseValues);
 
 %% applyNoise ----
 function Innoisy = applyNoise(I, s)
+% Generate a noisy image using Rician distribution
 I = double (I);
 dim = size(I);
 x = s .* randn(dim) + I;
@@ -380,6 +377,14 @@ end
 %%  get Region of Interest (ROI) ----
 
 function volROIS = getROI(vols, sliceNumbers, xStart, yStart, width, height)
+    % Input:
+    %   vols          - input grayscale images of size M x N
+    %   sliceNumbers  - slices to get the region of interest from
+    %   xStart, yStart, width and height  - dimension of the patch to
+    %   extract from the input images (vols).
+    % Output:
+    %   volROIS       - regions of interests for each slices (sliceNumbers)
+    %                   and each image (vols)
 
 N = size(vols, 2);
 volROIS = cell(N, 1);
@@ -545,46 +550,6 @@ title('119, Scale 30', 'FontSize', fontSize,'FontWeight','bold');
 
 end
 
-%% showSlices ----
-function showSlices(titletext_ROI102,...
-    roi_102,...
-    titletext_ROI119,...
-    roi_119,...
-    titletext_smoothedROI102, ...
-    roi_102_smoothed,...
-    titletext_smoothedROI119,...
-    roi_119_smoothed)
-
-figure;
-t = tiledlayout(2, 2);
-title(t, 'Original Image Before and After Filtering','FontSize', 24,'FontWeight','bold');
-% hold on 
-fontSize = 14;
-
-
-% Display original and smoothed slice 102
-nexttile;
-imshow(roi_102, []);  % Display the original ROI from slice 102
-title(titletext_ROI102, 'FontSize', fontSize,'FontWeight','bold');
-
-nexttile;
-imshow(roi_102_smoothed, []);  % Display the smoothed ROI from slice 102
-title(titletext_smoothedROI102,...
-    'FontSize', fontSize,'FontWeight','bold');
-
-% % Display original and smoothed slice 119
-nexttile;
-imshow(roi_119, []);  % Display the original ROI from slice 119
-title(titletext_ROI119, 'FontSize', fontSize,'FontWeight','bold');
-
-
-nexttile;
-imshow(roi_119_smoothed, []);  % Display the smoothed ROI from slice 119
-title(titletext_smoothedROI119,...
-    'FontSize', fontSize,'FontWeight','bold');
-
-
-end
 %% Voxel Squared Error Difference and Plots ----
 function eValues = getFilterPerformance(origVol,....
     gaussianDenoisedVols, ...
