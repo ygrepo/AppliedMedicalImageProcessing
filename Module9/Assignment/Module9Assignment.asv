@@ -244,19 +244,17 @@ function quantifyFilterPerformance(smoothedI, origI, slices)
         xlabel('X-axis');
         ylabel('Y-axis');
         axis image; % Ensure the aspect ratio is correct
-       
+        
+        % Adjust the intensity window for better visualization
+        % You may adjust the caxis values based on the error range
         clim([0, max(errorSlice(:))]); % Optional: set a range based on max error
     end
 end
 %%
 plotMSE(double(vol), noisyImages, gaussianDenoisedVols)
 %%
-function plotMSE(origI, noiseLevels, filters)
-
-end
-
-function plotMSE2(origI, noiseLevels, filters)
-    % origI: the original non-noisy image volume
+function plotMSE(I_orig, noiseLevels, filters)
+    % I_orig: the original non-noisy image volume
     % noiseLevels: a cell array containing image volumes with different noise levels
     % filters: a cell array of function handles for the filters to apply
 
@@ -277,7 +275,7 @@ function plotMSE2(origI, noiseLevels, filters)
             I_smooth = filterFunc(noisyVol);
             
             % Calculate the Mean Square Error (MSE)
-            mse = sqrt(mean((I_smooth(:) - origI(:)).^2));
+            mse = sqrt(mean((I_smooth(:) - I_orig(:)).^2));
             mseValues(n, f) = mse;
         end
     end
