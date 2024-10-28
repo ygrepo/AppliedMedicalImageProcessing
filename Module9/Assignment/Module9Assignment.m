@@ -3,9 +3,9 @@ clearvars
 clc
 vol = niftiread('data/sub-11_T1w.nii.gz');
 vol = flip (permute(vol, [2 1 3]), 1);
-%%
+
 % bestParams = gridSearch(vol);
-%%
+
 % Look at Slice 102 and Slice 119 ---
 sliceNumber = 102;
 % Display slice 102 using imshow
@@ -80,7 +80,6 @@ figure
 I = noisyRois{1};
 imshowpair(I{1},I{2},'montage')
 title('Noisy ROI, 102, 119')
-%%
 % Before and After Filtering, Noise scale = 10 ----
 noiseIndex = 1;
 scaleValue = 10;
@@ -105,7 +104,8 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-%% Before and After Filtering, Noise scale = 20 ----
+
+% Before and After Filtering, Noise scale = 20 ----
 noiseIndex = 2;
 scaleValue = 20;
 medianSupportSize = "(3x3x3)";
@@ -129,7 +129,7 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-%% Before and After Filtering, Noise scale = 30 ----
+% Before and After Filtering, Noise scale = 30 ----
 noiseIndex = 3;
 scaleValue = 30;
 medianSupportSize = "(3x3x3)";
@@ -153,7 +153,6 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-%%
 % Voxel Squared Error and Plot ----
 eValues = getFilterPerformance(vol,....
     gaussianDenoisedVols, ...
@@ -163,14 +162,12 @@ eValues = getFilterPerformance(vol,....
 % Noise Level 10, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 10);
 plotFilterPerformances(titleText, 1, eValues);
-%%
 % Noise Level 20, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 20);
 plotFilterPerformances(titleText, 2, eValues);
-%% Noise Level 30, Voxel Squared Error - Slices (102,119) ---
+% Noise Level 30, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 30);
 plotFilterPerformances(titleText, 3, eValues);
-%%
 % MSE and Plot ----
 mseValues = getRMSE(vol,....
     gaussianDenoisedVols, ...
