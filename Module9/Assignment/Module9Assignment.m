@@ -3,6 +3,9 @@ clearvars
 clc
 vol = niftiread('data/sub-11_T1w.nii.gz');
 vol = flip (permute(vol, [2 1 3]), 1);
+%%
+% bestParams = gridSearch(vol);
+%%
 % Look at Slice 102 and Slice 119 ---
 sliceNumber = 102;
 % Display slice 102 using imshow
@@ -26,7 +29,7 @@ noisyImages{3} = applyNoise(vol, 30);
 showNoisyImages(noisyImages);
 
 % Gaussian filtering of noisy images ----
-gaussianFilterSigma = 1;
+gaussianFilterSigma = .5;
 gaussianDenoisedVols = {};
 gaussianDenoisedVols{1} = imgaussfilt3(noisyImages{1}, gaussianFilterSigma);
 gaussianDenoisedVols{2} = imgaussfilt3(noisyImages{2}, gaussianFilterSigma);
@@ -39,15 +42,15 @@ medianFilterDenoisedVols{2} = medfilt3(noisyImages{2});
 medianFilterDenoisedVols{3} = medfilt3(noisyImages{3});
 
 % BilateralFilterGray of noisy images ----
-sigmaD = 2;  % Standard deviation for the domain (spatial) Gaussian kernel
-sigmaR = 51; % Standard deviation for the range Gaussian kernel
+sigmaD = 1;  % Standard deviation for the domain (spatial) Gaussian kernel
+sigmaR = 30; % Standard deviation for the range Gaussian kernel
 bilateralFilterDenoisedVols = {};
 bilateralFilterDenoisedVols{1} =computeBilateralFilter(noisyImages{1}, sigmaD, sigmaR);
 bilateralFilterDenoisedVols{2} =computeBilateralFilter(noisyImages{2}, sigmaD, sigmaR);
 bilateralFilterDenoisedVols{3} =computeBilateralFilter(noisyImages{3}, sigmaD, sigmaR);
 
 % Perona-Malik Filter of noisy images ----
-alpha = 0.25;   % Update rate
+alpha = 0.1;   % Update rate
 kappa = 15;     % Smoothness parameter
 T = 10;         % Number of iterations
 peronaMalikFilterDenoisedVols = {};
@@ -77,7 +80,7 @@ figure
 I = noisyRois{1};
 imshowpair(I{1},I{2},'montage')
 title('Noisy ROI, 102, 119')
-
+%%
 % Before and After Filtering, Noise scale = 10 ----
 noiseIndex = 1;
 scaleValue = 10;
@@ -102,7 +105,7 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-% Before and After Filtering, Noise scale = 20 ----
+%% Before and After Filtering, Noise scale = 20 ----
 noiseIndex = 2;
 scaleValue = 20;
 medianSupportSize = "(3x3x3)";
@@ -126,7 +129,7 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
-% Before and After Filtering, Noise scale = 30 ----
+%% Before and After Filtering, Noise scale = 30 ----
 noiseIndex = 3;
 scaleValue = 30;
 medianSupportSize = "(3x3x3)";
@@ -150,6 +153,7 @@ showROIS(noiseIndex, ...
     T,...
     peronaMalikFilterDenoisedRois,...
     fontSize);
+%%
 % Voxel Squared Error and Plot ----
 eValues = getFilterPerformance(vol,....
     gaussianDenoisedVols, ...
@@ -159,12 +163,14 @@ eValues = getFilterPerformance(vol,....
 % Noise Level 10, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 10);
 plotFilterPerformances(titleText, 1, eValues);
+%%
 % Noise Level 20, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 20);
 plotFilterPerformances(titleText, 2, eValues);
-% Noise Level 30, Voxel Squared Error - Slices (102,119) ---
+%% Noise Level 30, Voxel Squared Error - Slices (102,119) ---
 titleText = sprintf('Noise Level %d, Voxel Squared Error - Slices (102,119)', 30);
 plotFilterPerformances(titleText, 3, eValues);
+%%
 % MSE and Plot ----
 mseValues = getRMSE(vol,....
     gaussianDenoisedVols, ...
@@ -799,4 +805,87 @@ function plotMSE(mseValues)
     legend(filterNames, 'Location', 'best'); 
     grid on;
 end
+
+%% Grid Search to Optimize Filter Parameters Using MSE
+
+function bestParams = gridSearch(vol)
+% Define parameter ranges for grid search
+gaussianSigmas = [0.5, 1, 1.5, 2];
+medianSupportSizes = [3, 5, 7]; % Filter sizes for the median filter
+bilateralSigmaDs = [1, 2, 3]; % Spatial domain standard deviation
+bilateralSigmaRs = [30, 50, 70]; % Range domain standard deviation
+peronaAlphas = [0.1, 0.25, 0.5];
+peronaKappas = [5, 10, 15];
+peronaTs = [5, 10, 15];
+
+% Initialize variables to store the best parameters and MSEs
+bestMSE = inf(1, 4);
+bestParams = cell(1, 4); % Each cell will store the best parameters for a filter
+
+% Loop over each noise level
+for noiseIdx = 1:3
+    % Generate noisy image
+    noisyImage = applyNoise(vol, noiseIdx * 10);
+    
+    % Gaussian Filter Grid Search
+    for sigma = gaussianSigmas
+        denoisedVol = imgaussfilt3(noisyImage, sigma);
+        mse = calculateRMSE(vol, denoisedVol);
+        if mse < bestMSE(1)
+            bestMSE(1) = mse;
+            bestParams{1} = sigma;
+        end
+    end
+    
+    % Median Filter Grid Search
+    for supportSize = medianSupportSizes
+        denoisedVol = medfilt3(noisyImage, [supportSize, supportSize, supportSize]);
+        mse = calculateRMSE(vol, denoisedVol);
+        if mse < bestMSE(2)
+            bestMSE(2) = mse;
+            bestParams{2} = supportSize;
+        end
+    end
+    
+    % Bilateral Filter Grid Search
+    for sigmaD = bilateralSigmaDs
+        for sigmaR = bilateralSigmaRs
+            denoisedVol = computeBilateralFilter(noisyImage, sigmaD, sigmaR);
+            mse = calculateRMSE(vol, denoisedVol);
+            if mse < bestMSE(3)
+                bestMSE(3) = mse;
+                bestParams{3} = [sigmaD, sigmaR];
+            end
+        end
+    end
+    
+    % Perona-Malik Filter Grid Search
+    for alpha = peronaAlphas
+        for kappa = peronaKappas
+            for T = peronaTs
+                denoisedVol = computePeronaMalikFilter(noisyImage, alpha, kappa, T);
+                mse = calculateRMSE(vol, denoisedVol);
+                if mse < bestMSE(4)
+                    bestMSE(4) = mse;
+                    bestParams{4} = [alpha, kappa, T];
+                end
+            end
+        end
+    end
+end
+
+% Display the best parameters for each filter
+disp('Optimal Parameters and MSEs:');
+disp(['Gaussian Filter: Sigma = ', num2str(bestParams{1}), ', MSE = ', num2str(bestMSE(1))]);
+disp(['Median Filter: Support Size = ', num2str(bestParams{2}), ', MSE = ', num2str(bestMSE(2))]);
+disp(['Bilateral Filter: SigmaD = ', num2str(bestParams{3}(1)), ', SigmaR = ', num2str(bestParams{3}(2)), ', MSE = ', num2str(bestMSE(3))]);
+disp(['Perona-Malik Filter: Alpha = ', num2str(bestParams{4}(1)), ', Kappa = ', num2str(bestParams{4}(2)), ', T = ', num2str(bestParams{4}(3)), ', MSE = ', num2str(bestMSE(4))]);
+
+end
+
+%% Function to calculate MSE
+function mse = calculateRMSE(origVol, denoisedVol)
+    mse = sqrt(mean((origVol(:) - denoisedVol(:)).^2));
+end
+
 

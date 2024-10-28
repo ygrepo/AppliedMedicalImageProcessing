@@ -94,7 +94,7 @@ title('Original MRI Slice', 'FontSize', 20, 'FontWeight','bold');
 
 h2 = subplot(1, 3, 2);
 optPlot = struct();
-optPlot.title = ['Segmented MRI Slice with FCM ', num2str(nClusters), ' Clusters'];
+optPlot.title = ['Segmented MRI Slice,FCM,',num2str(nClusters), ' Clusters' ];
 centers = [fcmCenters'];
 optPlot.centerColors = ['kx'];
 optPlot.fixedColors = fixedColors; 
@@ -104,7 +104,7 @@ showSegmentedImg(sliceData, segFCMImg, centers, optPlot);
 
 h3 = subplot(1, 3, 3);
 optPlot = struct();
-optPlot.title = ['Segmented MRI Slice with BAT + FCM ', num2str(nClusters), ' Clusters'];
+optPlot.title = ['Segmented MRI Slice,BAT + FCM', num2str(nClusters), ' Clusters'];
 centers = [segImgInresults.batCenters];
 optPlot.centerColors = ['rx'];
 optPlot.fixedColors = fixedColors; 
