@@ -1,0 +1,75 @@
+\documentclass[12pt,twoside]{article}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,graphicx,amsmath,amsfonts,amscd,amssymb,mathrsfs, bm,cite,epsfig,epsf,url}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{amsthm,multirow,wasysym,appendix}
+\usepackage{array,subcaption} 
+% \usepackage[small,bf]{caption}
+\usepackage{bbm}
+\usepackage{pgfplots}
+\usetikzlibrary{spy}
+\usepgfplotslibrary{external}
+\usepgfplotslibrary{fillbetween}
+\usetikzlibrary{arrows,automata}
+\usepackage{thmtools}
+\usepackage{blkarray} 
+\usepackage{textcomp}
+\usepackage{float}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+
+
+\usepackage{times}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{latexsym}
+\usepackage{color}
+\usepackage{graphics}
+\usepackage{enumerate}
+\usepackage{amstext}
+\usepackage{blkarray}
+\usepackage{url}
+\usepackage{epsfig}
+\usepackage{bm}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+}
+\usepackage{textcomp}
+%\usepackage[left=0.8in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+\usepackage{mathtools}
+%\usepackage{minted}
+\usepackage{gensymb}
+
+\input{macros}
+
+
+\begin{document}
+
+The total variation of a color image \(\mathbf{X}\) can be expressed as
+\[
+TV(\mathbf{X}) = \sum_{i,j \in \mathcal{N}} \|\mathbf{x}_i - \mathbf{x}_j\|_p^q
+\]
+where \(\mathcal{N}\) defines the pixel neighborhood (usually the horizontal and vertical adjacent pixels) and \(\|\cdot\|_p^q\) is the \(\ell_p\) norm to the power of \(q\).
+
+\begin{itemize}
+    \item Classical \(\ell_1\) TV computed independently on each color component.
+    \[
+    \|\mathbf{x}\|_1 = \sum_k \|\mathbf{x}_k\|_1 \quad (p = 1, q = 1)
+    \]
+
+    \item \(\ell_2\) TV computes the Euclidean norm of the vector.
+    \[
+    \|\mathbf{x}\|_2 = \left( \sum_k x_k^2 \right)^{\frac{1}{2}} \quad (p = 2, q = 1)
+    \]
+
+    \item Squared \(\ell_2\) TV computes the squared Euclidean norm of the vector.
+    \[
+    \|\mathbf{x}\|_2 = \sum_k x_k^2 \quad (p = 2, q = 2)
+    \]
+\end{itemize}
+
+\end{document}
