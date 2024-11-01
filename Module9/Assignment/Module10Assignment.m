@@ -143,6 +143,7 @@ showROIS(noiseIndex, ...
     geometryPreservingAnisotropicDiffFilterdRois,...
     fontSize);
 %% Comparison with Gaussian, Median, Bilateral and Perona-Malik Filters.
+clc
 % Gaussian filtering of noisy images ----
 gaussianFilterSigma = .5;
 gaussianDenoisedVols = {};
@@ -431,6 +432,197 @@ end
 %         end
 %     end
 % end
+%% BilateralFilterGray ----
+function filteredI = BilateralFilterGraySep(I, sigmaD, sigmaR)
+    % Input:
+    %   I        - input grayscale image of size M x N
+    %   sigmaD  - standard deviation for the domain (spatial) Gaussian kernel
+    %   sigmaR  - standard deviation for the range Gaussian kernel
+    % Output:
+    %   filteredI - output filtered grayscale image of size M x N
+
+    % Convert image to double for precision
+    I = double(I);
+
+    % Get the size of the image
+    [M, N] = size(I);
+
+    % Compute the spatial Gaussian kernel size K
+    K = ceil(3.5 * sigmaD);
+
+    % First pass: Vertical filtering
+    IPrime = zeros(M, N); % This will store the intermediate result
+
+    for u = 1:M
+        for v = 1:N
+            % Initialize S and W
+            S = 0;
+            W = 0;
+
+            % Get the intensity of the center pixel in the original image
+            a = I(u, v);
+
+            % Loop over the vertical neighborhood
+            for m = -K:K
+                % Ensure the neighboring pixel index is within bounds
+                if (u + m >= 1) && (u + m <= M)
+                    % Get the neighboring pixel (vertical axis) from the original image
+                    b = I(u + m, v);
+
+                    % Compute spatial (domain) Gaussian weight
+                    wd = exp(-m^2 / (2 * sigmaD^2));
+
+                    % Compute range Gaussian weight
+                    wr = exp(-(a - b)^2 / (2 * sigmaR^2));
+
+                    % Total weight
+                    w = wd * wr;
+
+                    % Update S and W
+                    S = S + w * b;
+                    W = W + w;
+                end
+            end
+            % Set the intermediate filtered value for the vertical pass
+            IPrime(u, v) = S / W;
+        end
+    end
+
+    % Second pass: Horizontal filtering
+    filteredI = zeros(M, N); % This will store the final result
+
+    for u = 1:M
+        for v = 1:N
+            % Initialize S and W
+            S = 0;
+            W = 0;
+
+            % Get the intensity of the center pixel from the intermediate result
+            a = IPrime(u, v);
+
+            % Loop over the horizontal neighborhood
+            for n = -K:K
+                % Ensure the neighboring pixel index is within bounds
+                if (v + n >= 1) && (v + n <= N)
+                    % Get the neighboring pixel (horizontal axis) from the intermediate result
+                    b = IPrime(u, v + n);
+
+                    % Compute spatial (domain) Gaussian weight
+                    wd = exp(-n^2 / (2 * sigmaD^2));
+
+                    % Compute range Gaussian weight
+                    wr = exp(-(a - b)^2 / (2 * sigmaR^2));
+
+                    % Total weight
+                    w = wd * wr;
+
+                    % Update S and W
+                    S = S + w * b;
+                    W = W + w;
+                end
+            end
+
+            % Set the final filtered value for the horizontal pass
+            filteredI(u, v) = S / W;
+        end
+    end
+end
+
+%% Perona-Malik Filter ----
+function I = PeronaMalik(I, alpha, kappa, T)
+    % Input:
+    %   I      - input grayscale image of size M x N
+    %   alpha  - update rate
+    %   kappa  - smoothness parameter
+    %   T      - number of iterations
+    % Output:
+    %   I      - output smoothed image
+
+    % Get the size of the image
+    [M, N] = size(I);
+
+    % Define the conductivity function g(d)
+    g = @(d) exp(-(d / kappa).^2);
+
+    % Iterate over T iterations
+    for t = 1:T
+        % Initialize gradient maps Dx and Dy
+        Dx = zeros(M, N);
+        Dy = zeros(M, N);
+        
+        % Compute forward differences Dx and Dy
+        for u = 1:M
+            for v = 1:N
+                if u < M
+                    Dx(u, v) = I(u + 1, v) - I(u, v);
+                else
+                    Dx(u, v) = 0; % Zero padding at boundary
+                end
+                
+                if v < N
+                    Dy(u, v) = I(u, v + 1) - I(u, v);
+                else
+                    Dy(u, v) = 0; % Zero padding at boundary
+                end
+            end
+        end
+
+        % Update image based on the gradients and conductivity function
+        for u = 1:M
+            for v = 1:N
+                % Get forward differences
+                delta_0 = Dx(u, v);
+                delta_1 = Dy(u, v);
+                
+                % Get backward differences
+                if u > 1
+                    delta_2 = -Dx(u - 1, v);
+                else
+                    delta_2 = 0; % Zero padding at boundary
+                end
+                
+                if v > 1
+                    delta_3 = -Dy(u, v - 1);
+                else
+                    delta_3 = 0; % Zero padding at boundary
+                end
+                
+                % Update the pixel value using the Perona-Malik equation
+                I(u, v) = I(u, v) + alpha * (...
+                    g(abs(delta_0)) * delta_0 + ...
+                    g(abs(delta_1)) * delta_1 + ...
+                    g(abs(delta_2)) * delta_2 + ...
+                    g(abs(delta_3)) * delta_3 );
+            end
+        end
+    end
+   
+end
+
+
+%% computeBilateralFilter ----
+function filteredI = computeBilateralFilter(I, sigmaD, sigmaR)
+
+filteredI = zeros(size(I));  % Initialize an array to store the filtered image
+[~, ~, dim3] = size(I); 
+ for i = 1:dim3
+    slice = I(:, :, i);  % Extract the ith slice
+    slice = BilateralFilterGraySep(slice, sigmaD, sigmaR);  % Apply  filter
+    filteredI(:, :, i) = slice;  % Store the filtered slice back
+ end
+end
+
+%% computePeronaMalikFilter ----
+function filteredI =computePeronaMalikFilter(I, alpha, kappa, T)
+filteredI = zeros(size(I));  % Initialize an array to store the filtered image
+[~, ~, dim3] = size(I); 
+
+for i = 1:dim3
+    slice = I(:, :, i);  % Extract the ith slice
+    slice = PeronaMalik(slice, alpha, kappa, T);  % Apply filter
+    filteredI(:, :, i) = slice;  % Store the filtered slice back
+end
+end
 
 %% applyNoise ----
 function Innoisy = applyNoise(I, s)
@@ -704,7 +896,7 @@ function plotMSE(mseValues)
     figure('Position', [100, 100, 800, 600]);
 
     hold on;
-    markers = {'-o', '-s', '-^', '-d'}; % Different markers for different filters
+    markers = {'-o', '-s', '-^', '-d', '-v'};  % Markers for five filters
     numFilters = size(mseValues, 2);
     for f = 1:numFilters
         plot(noiseLevels, mseValues(:, f), markers{f}, 'LineWidth', 2);
