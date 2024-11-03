@@ -1,79 +1,24 @@
-% %%
-% I = imread("cameraman.tif");
-% figure;
-% imshow(I)
-% 
-% title("Original Image")
-% Idiffusion = imdiffusefilt(I);
-% sigma = 1.2;
-% Igaussian = imgaussfilt(I,sigma);
-% slice =double(I);
-% slice(:,:,1) = slice;
-% sigmaG = 1;
-% sigmaS = 2;
-% T = 10;
-% dt = 0.2;
-% a1 = 0.5;
-% a2 = 0.9;
-% filteredSlice = GeometryPreservingAnisotropicDiffFilter(slice,...
-%     T, dt, sigmaS, sigmaG, a1, a2);  % Apply  filter
-% filteredSlice = squeeze(filteredSlice);
-% disp('done')
-% montage({Idiffusion,uint8(filteredSlice)})
 
-% title("Smoothing Using Anisotropic Diffusion (Left) vs. GGPAD (Right)")
-% calculateRMSE(I, uint8(filteredSlice))
-% calculateRMSE(I, Idiffusion)
-
-%%
 clearvars
 clc
 vol = niftiread('data/sub-11_T1w-1.nii.gz');
 vol = flip (permute(vol, [2 1 3]), 1);
 
-%% bestParams = gridSearch(vol);
+% bestParams = gridSearch(vol);
 % sigmaG = 1;
 % sigmaS = 2;
 % T = 10;
 % dt = 0.2;
 % a1 = 0.5;
 % a2 = 0.9;
-%%
+
 % Generate noisy images ----
 noisyImages = {};
 noisyImages{1} = applyNoise(vol, 10);
 noisyImages{2} = applyNoise(vol, 20);
 noisyImages{3} = applyNoise(vol, 30);
-noisyImages = loadImages('data/noisy_vol%d.nii');
 showNoisyImages(noisyImages)
-saveImages(noisyImages, 'data/noisy_vol%d.nii');
-%%
-% clc
-% 
-% I = noisyImages{3};
-% slice = double(I(:, :, 119));
-% slice(:,:,1) = slice;
-% filteredSlice = GeometryPreservingAnisotropicDiffFilter(slice,...
-%     T, dt, sigmaG, sigmaS, a1, a2);  % Apply  filter
-% disp('done')
-% filteredSlice = squeeze(filteredSlice);
-% figure;
-% %imshow(filteredSlice, []);  
-% imshowpair(squeeze(slice),filteredSlice,'montage')
-% calculateRMSE(squeeze(slice), filteredSlice)
 
-%%
-% clc
-% sigmaS = 2;
-% sigmaG = 1;
-% T = 10;
-% dt = 0.2;
-% a1 = 0.5;
-% a2 = 0.9;
-% I = noisyImages{1};
-% filteredI = computeGeometryPreservingAnisotropicDiffFilter(I,...
-%     T, dt, sigmaS, sigmaG, a1, a2);  % Apply  filter
-%%
 % Geometry Preserving Anisotropic Diffusion Filter of noisy images ----
 sigmaG = 2;
 sigmaS = 1;
@@ -92,21 +37,6 @@ geometryPreservingAnisotropicDiffFilterDenoisedVols{3} = ...
     computeGeometryPreservingAnisotropicDiffFilter(noisyImages{3},...
     T, dt, sigmaG, sigmaS, a1, a2);  % Apply  filter
 
-%%geometryPreservingAnisotropicDiffFilterDenoisedVols = loadImages('data/denoised_vol%d.nii');
-saveImages(geometryPreservingAnisotropicDiffFilterDenoisedVols, 'data/denoised_vol%d.nii');
-%%
-% slice = noisyImages{3};
-% slice  = slice(:,:,119);
-% filteredSlice = geometryPreservingAnisotropicDiffFilterDenoisedVols{3};
-% filteredSlice  = filteredSlice(:,:,119);
-% 
-% imshowpair(squeeze(slice),filteredSlice,'montage')
-% 
-% %%
-% sliceNumber = 119;
-% I = geometryPreservingAnisotropicDiffFilterDenoisedVols{3};
-% imshow(I(:,:,sliceNumber), []);  % Display Denoised Image with scale 
-%%
 % Define the region of interest (ROI) ----
 xStart = [80, 110];
 yStart = [50, 80];
@@ -116,13 +46,7 @@ sliceNumbers = [102, 119];
 noisyRois = getROI(noisyImages, sliceNumbers, xStart, yStart, width, height);
 geometryPreservingAnisotropicDiffFilterdRois = getROI(geometryPreservingAnisotropicDiffFilterDenoisedVols,... 
     sliceNumbers, xStart, yStart, width, height);
-%%
-% Check ROIS of first noise level images (10) ----
-clc
-%figure
-% I = noisyRois{1};
-% imshowpair(I{1},I{2},'montage')
-% title('Noisy ROI, 102, 119')
+
 % Before and After Filtering, Noise scale = 10 ----
 noiseIndex = 1;
 scaleValue = 10;
@@ -139,7 +63,7 @@ showROIS(noiseIndex, ...
     geometryPreservingAnisotropicDiffFilterdRois,...
     fontSize);
 
-%% Before and After Filtering, Noise scale = 20 ----
+% Before and After Filtering, Noise scale = 20 ----
 noiseIndex = 2;
 scaleValue = 20;
 fontSize = 14;
@@ -154,7 +78,7 @@ showROIS(noiseIndex, ...
     dt,...
     geometryPreservingAnisotropicDiffFilterdRois,...
     fontSize);
-%% Before and After Filtering, Noise scale = 30 ----
+% Before and After Filtering, Noise scale = 30 ----
 noiseIndex = 3;
 scaleValue = 30;
 fontSize = 14;
@@ -169,13 +93,14 @@ showROIS(noiseIndex, ...
     dt,...
     geometryPreservingAnisotropicDiffFilterdRois,...
     fontSize);
-%% Voxel Squared Error and Plot ----
+
+% Voxel Squared Error and Plot ----
 eValues = getVoxelSquaredErrorDifference(vol,...
     geometryPreservingAnisotropicDiffFilterDenoisedVols);
 % Noise Level 10, 20 and 30 and Voxel Squared Error - Slices (102,119) ---
 plotVoxelSquaredErrorDifference(eValues);
 
-%% Comparison with Gaussian, Median, Bilateral and Perona-Malik Filters.
+% Comparison with Gaussian, Median, Bilateral and Perona-Malik Filters.
 clc
 % Gaussian filtering of noisy images ----
 gaussianFilterSigma = .5;
@@ -206,7 +131,7 @@ peronaMalikFilterDenoisedVols = {};
 peronaMalikFilterDenoisedVols{1} =computePeronaMalikFilter(noisyImages{1}, alpha, kappa, T);
 peronaMalikFilterDenoisedVols{2} =computePeronaMalikFilter(noisyImages{2}, alpha, kappa, T);
 peronaMalikFilterDenoisedVols{3} =computePeronaMalikFilter(noisyImages{3}, alpha, kappa, T);
-%% MSE and Plot ----
+% MSE and Plot ----
 mseValues = getRMSE(vol,....
     gaussianDenoisedVols, ...
     medianFilterDenoisedVols, ...
@@ -214,6 +139,7 @@ mseValues = getRMSE(vol,....
     peronaMalikFilterDenoisedVols,...
     geometryPreservingAnisotropicDiffFilterDenoisedVols);
 plotMSE(mseValues);
+
 %% Geometry Preserving Anisotropic Diffusion Filter ----
 function filteredI = computeGeometryPreservingAnisotropicDiffFilter(I,...
     T, dt, sigmaS, sigmaG, a1, a2)

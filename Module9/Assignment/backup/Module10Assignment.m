@@ -170,21 +170,10 @@ showROIS(noiseIndex, ...
     geometryPreservingAnisotropicDiffFilterdRois,...
     fontSize);
 %% Voxel Squared Error and Plot ----
-eValues = getVoxelSquaredErrorDifference(vol,....
-    gaussianDenoisedVols, ...
-    medianFilterDenoisedVols, ...
-    bilateralFilterDenoisedVols, ...
-    peronaMalikFilterDenoisedVols,...
+eValues = getVoxelSquaredErrorDifference(vol,...
     geometryPreservingAnisotropicDiffFilterDenoisedVols);
-% Noise Level 10, Voxel Squared Error - Slices (102,119) ---
-titleText = sprintf('Noise Level %d, Voxel Squared Error Difference - Slices (102,119)', 10);
-plotVoxelSquaredErrorDifference(titleText, 1, eValues);
-% Noise Level 20, Voxel Squared Error - Slices (102,119) ---
-%titleText = sprintf('Noise Level %d, Voxel Squared Error Difference - Slices (102,119)', 20);
-%plotVoxelSquaredErrorDifference(titleText, 2, eValues);
-% % Noise Level 30, Voxel Squared Error - Slices (102,119) ---
-%titleText = sprintf('Noise Level %d, Voxel Squared Error Difference - Slices (102,119)', 30);
-%plotVoxelSquaredErrorDifference(titleText, 3, eValues);
+% Noise Level 10, 20 and 30 and Voxel Squared Error - Slices (102,119) ---
+plotVoxelSquaredErrorDifference(eValues);
 
 %% Comparison with Gaussian, Median, Bilateral and Perona-Malik Filters.
 clc
@@ -217,16 +206,14 @@ peronaMalikFilterDenoisedVols = {};
 peronaMalikFilterDenoisedVols{1} =computePeronaMalikFilter(noisyImages{1}, alpha, kappa, T);
 peronaMalikFilterDenoisedVols{2} =computePeronaMalikFilter(noisyImages{2}, alpha, kappa, T);
 peronaMalikFilterDenoisedVols{3} =computePeronaMalikFilter(noisyImages{3}, alpha, kappa, T);
-%%
-
-% % MSE and Plot ----
-% mseValues = getRMSE(vol,....
-%     gaussianDenoisedVols, ...
-%     medianFilterDenoisedVols, ...
-%     bilateralFilterDenoisedVols, ...
-%     peronaMalikFilterDenoisedVols,...
-%     geometryPreservingAnisotropicDiffFilterDenoisedVols);
-% plotMSE(mseValues);
+%% MSE and Plot ----
+mseValues = getRMSE(vol,....
+    gaussianDenoisedVols, ...
+    medianFilterDenoisedVols, ...
+    bilateralFilterDenoisedVols, ...
+    peronaMalikFilterDenoisedVols,...
+    geometryPreservingAnisotropicDiffFilterDenoisedVols);
+plotMSE(mseValues);
 %% Geometry Preserving Anisotropic Diffusion Filter ----
 function filteredI = computeGeometryPreservingAnisotropicDiffFilter(I,...
     T, dt, sigmaS, sigmaG, a1, a2)
@@ -260,14 +247,11 @@ function I = GeometryPreservingAnisotropicDiffFilter(I,...
 [M, N, K] = size(I);
 
 % Initialize auxiliary matrices
-% D = zeros(K, M, N, 2);        % Gradient maps for each channel
+D = zeros(K, M, N, 2);        % Gradient maps for each channel
 H = zeros(K, M, N, 2, 2);       % Hessian
 
 % Iterate for T steps
-for t = 1:T
-    % Initialize structure matrix G for this iteration
-    G = zeros(M, N, 2, 2);
-    
+for t = 1:T    
     % Compute gradient maps D and structure matrix H for each channel
     for k = 1:K
         %fprintf('T:%d-Channel:%d\n', t, k)
@@ -785,7 +769,7 @@ function eValues = getVoxelSquaredErrorDifference(origVol,....
 % Geometry Preserving Anisotropic Diffusion Filter.
 
 numNoiseLevels = size(geometryPreservingAnisotropicDiffFilterDenoisedVols, 2);
-eValues = cell(numNoiseLevels);
+eValues = cell(numNoiseLevels, 1);
 origVol = double(origVol);
 % Iterate over each noise level
 for n = 1:numNoiseLevels
@@ -796,40 +780,36 @@ end
 
 end
 
-function plotVoxelSquaredErrorDifference(titleText, noiseLevelIndex, eValues)
+function plotVoxelSquaredErrorDifference(eValues)
     fontSize = 14;
     tickFontSize = 12;
     xLabelText = 'X-axis Voxel Squared Error Difference';
     yLabelText = 'Y-axis Voxel Squared Error Difference';
-    filterNames = {'Gaussian', 'Median', 'Bilateral',...
-        'Perona-Malik', 'Geometry Preserving Anisotropic Diffusion Filter'};
     sliceNumbers = [102, 119]; % The two slices to be plotted
-
     % Create a tiled layout for the plots
     figure;
     t = tiledlayout(3, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
-    title(t, titleText, 'FontSize', 24, 'FontWeight', 'bold');
+    title(t, 'Noise Level 10,20,30-Voxel Squared Error Difference', 'FontSize', 24, 'FontWeight', 'bold');
 
-    noiseLevels = [10, 20, 30];
-    % Loop over each slice number
+    % Loop over each noise level
     for i = 1:length(eValues)
-       noiseLevel = noiseLevels(i);
-       E = eValues{i}; % Get the error volume for the filter
+       E = eValues{i}; % Get the voxel error difference for this noise level
        for j=1:length(sliceNumbers)
-            errorSlice = E(:, :, sliceNumber); % Extract the specified slice
+            errorSlice = E(:, :, sliceNumbers(j)); % Extract the specified slice
             nexttile;
-            plotErrorSlice(errorSlice, filterNames{j}, fontSize, tickFontSize, xLabelText, yLabelText);
+            titleText = sprintf('Slice:%d', sliceNumbers(j));
+            plotErrorSlice(errorSlice, titleText, fontSize, tickFontSize, xLabelText, yLabelText);
        end
  
     end
 end
 
 
-function plotErrorSlice(errorSlice, filterName, fontSize, tickFontSize, xLabelText, yLabelText)
+function plotErrorSlice(errorSlice, titleText, fontSize, tickFontSize, xLabelText, yLabelText)
     imagesc(errorSlice);
     colormap(jet); % Use a colormap for visualization
     colorbar;      % Add a colorbar to indicate intensity values
-    title(filterName, ...
+    title(titleText, ...
         'FontSize', fontSize, 'FontWeight', 'bold');
     xlabel(xLabelText, 'FontSize', fontSize);
     ylabel(yLabelText, 'FontSize', fontSize);
@@ -868,10 +848,8 @@ for n = 1:numNoiseLevels
    mseValues(n, 3) = sqrt(mean((smoothedI(:) - origVol(:)).^2));
    smoothedI = peronaMalikFilterDenoisedVols{n};
    mseValues(n, 4) = sqrt(mean((smoothedI(:) - origVol(:)).^2));
-   smoothedI = peronaMalikFilterDenoisedVols{n};
-   mseValues(n, 4) = sqrt(mean((smoothedI(:) - origVol(:)).^2));
    smoothedI = geometryPreservingAnisotropicDiffFilterDenoisedVols{n};
-   mseValues(n, 4) = sqrt(mean((smoothedI(:) - origVol(:)).^2));
+   mseValues(n, 5) = sqrt(mean((smoothedI(:) - origVol(:)).^2));
 end
 
 end
