@@ -1,13 +1,13 @@
 % Load an example MRI image
-% clearvars 
-% clc
+clearvars 
+clc
 load mri;  % Preloaded data from MATLAB
 D = squeeze(D);  % Removes singleton dimensions
 
 % Select the 15th slice of the MRI
 slice_number = 15;
 sliceData = D(:,:,slice_number);  % uint8 data
-%sliceData = imdiffusefilt(sliceData);
+sliceData = imdiffusefilt(sliceData);
 %sliceData = histeq(sliceData);
 
 % Convert uint8 data to double and normalize to [0, 1]
@@ -334,7 +334,6 @@ function S = fuzzySeparationIndex(data, centroids, U, m)
     denominator = num_samples * min_inter_centroid_dist;
     S = numerator / denominator;
 end
-
 function varargout = customFCM(data, options)
 %FCM Data set clustering using fuzzy c-means clustering.
 %
@@ -572,6 +571,58 @@ if nargout>0
 end
 end
 
+% function [center, newFuzzyPartMat, objFcn, covMat, brkCond] = stepfcm(data, fuzzyPartMat, options)
+% %STEPFCM One step in fuzzy c-mean clustering.
+% %
+% %   [CENTER, NEWFUZZYPARTMAT, OBJFCN, COVMAT, BRKCOND] = STEPFCM(DATA, FUZZYPARTMAT, OPTIONS)
+% %   performs one iteration of fuzzy c-mean clustering, where
+% %
+% %   DATA: matrix of data to be clustered. (Each row is a data point.)
+% %   FUZZYPARTMAT: partition matrix. (FUZZYPARTMAT(i,j) is the MF value of
+% %   data j in cluster i.)
+% %   OPTIONS: includes properties NUMCLUSTERS and EXPONENT
+% %   NEWFUZZYPARTMAT: new partition matrix.
+% %   CENTER: center of clusters. (Each row is a center.)
+% %   OBJFCN: objective function for partition FUZZYPARTMAT.
+% %   COVMAT: covariance matrix for Mahalanobis distance metric.
+% %   BRKCOND: Flag for breaking iterations according to conditions.
+% %
+% %   Note that the situation of "singularity" (one of the data points is
+% %   exactly the same as one of the cluster centers) is not checked.
+% %   However, it hardly occurs in practice.
+% %
+% %     See also EUCLIDEANDIST, MAHALANOBISDIST, FMLE, STEPFCM, FCM
+% 
+% %  Copyright 2022-2023 The MathWorks, Inc.
+% 
+% numCluster = options.NumClusters;
+% expo = options.Exponent;
+% clusterVolume = options.ClusterVolume;
+% brkCond = struct('isTrue',false,'description','');
+% 
+% memFcnMat = fuzzyPartMat.^expo;       % Fuzzy Partition Matrix after exponential modification
+% if isempty(options.ClusterCenters)
+%     center = memFcnMat*data./(sum(memFcnMat,2)*ones(1,size(data,2)));     % New cluster centers
+% else
+%     center = options.ClusterCenters;
+%     options.ClusterCenters = [];
+% end
+% 
+% if strcmp(options.DistanceMetric, getString(message('fuzzy:general:lblFcm_mahalanobis')))
+%     [dist, covMat, brkCond] = fuzzy.clustering.mahalanobisdist(center, data, memFcnMat, clusterVolume);
+% elseif strcmp(options.DistanceMetric, getString(message('fuzzy:general:lblFcm_fmle')))
+%     [dist, covMat, brkCond] = fuzzy.clustering.fmle(center, data, memFcnMat);
+% else
+%     dist = fuzzy.clustering.euclideandist(center, data);
+%     covMat = [];
+% end
+% 
+% tmp = (max(dist,eps)).^(-2/(expo-1));     % Calculate new Fuzzy Partition Matrix, suppose expo != 1
+% newFuzzyPartMat = tmp./(ones(numCluster, 1)*sum(tmp));
+% objFcn = sum(sum((dist.^2).*max(memFcnMat,eps)));
+% 
+% end
+
 function [center, newFuzzyPartMat, objFcn, covMat, brkCond] = stepfcm(data, fuzzyPartMat, options)
 %STEPFCM One step in fuzzy c-mean clustering with combined objective function.
 %
@@ -620,5 +671,9 @@ objFcn = calculateFitness(center, options);
 % Update the fuzzy partition matrix
 tmp = (max(dist, eps)).^(-2/(expo-1)); % Calculate new Fuzzy Partition Matrix, suppose expo != 1
 newFuzzyPartMat = tmp ./ (ones(numCluster, 1) * sum(tmp));
+
+
+
+
 
 end

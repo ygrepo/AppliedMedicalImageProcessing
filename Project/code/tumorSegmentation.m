@@ -33,3 +33,17 @@ for rId = rStep+1:row-rStep
     end
 end
 end
+
+function [hasTumor,numFalsePos,tumorLabel] = ...
+    segmentTumor(testLabel,refPositiveIds,clusterId)
+%% Calculate detection results using the test and reference data.
+
+tumorIds = testLabel==clusterId;
+segmentedImage = testLabel;
+segmentedImage(tumorIds) = 1;
+segmentedImage(~tumorIds) = 0;
+tumorIdsECIds = find(tumorIds==1);
+hasTumor = ~isempty(tumorIdsECIds);
+numFalsePos = length(find(setdiff(tumorIdsECIds,refPositiveIds)));
+tumorLabel = segmentedImage;
+end
