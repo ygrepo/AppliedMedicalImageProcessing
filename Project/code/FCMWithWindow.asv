@@ -38,12 +38,15 @@ options.DistanceMetric = 'euclidean';
 options.MinImprovement = 1e-5;
 options.Verbose = 1;
 options.ClusterVolume = 1;
-options.lambda = 0;
+options.lambda = 0.1;
+options.alpha = 1;
+options.beta = 0.5;
+options.zeta = 1.5;
 
 [fcmCenters, fcmU] = customFCM(filteredDTrainFeatures, options);
 
 ecDist = findDistance(fcmCenters,filteredDTrainFeatures);
-[~,ecFcmLabel] = min(ecDist',[],2); %#ok<UDIM>
+[~,ecFcmLabel] = min(ecDist',[],2); 
 ecFcmLabel = reshape(ecFcmLabel,n,r*c)';
 ecFcmLabel = reshape(ecFcmLabel,[r c n]);
 
@@ -56,7 +59,10 @@ options.DistanceMetric = 'euclidean';
 options.MinImprovement = 1e-5;
 options.Verbose = 1;
 options.ClusterVolume = 1;
-options.lambda = 0;
+options.lambda = 0.1;
+options.alpha = 1;
+options.beta = 0.5;
+options.zeta = 1.5;
 
 % BAT Options.
 options.nBats = 50;
@@ -168,27 +174,137 @@ filteredI = zeros(size(I));  % Initialize an array to store the filtered image
  end
 end
 
+% 
+% function y = createMovingWindowFeatures(in,dim)
+% % Create feature vectors using a moving window.
+% 
+% rStep = floor(dim(1)/2);
+% cStep = floor(dim(2)/2);
+% 
+% x1 = [zeros(size(in,1),rStep) in zeros(size(in,1),rStep)];
+% x = [zeros(cStep,size(x1,2));x1;zeros(cStep,size(x1,2))];
+% 
+% [row,col] = size(x);
+% yCol = prod(dim);
+% y = zeros((row-2*rStep)*(col-2*cStep), yCol);
+% ct = 0;
+% for rId = rStep+1:row-rStep
+%     for cId = cStep+1:col-cStep
+%         ct = ct + 1;
+%         y(ct,:) = reshape(x(rId-rStep:rId+rStep,cId-cStep:cId+cStep),1,[]);
+%     end
+% end
+% end
 
-function y = createMovingWindowFeatures(in,dim)
-% Create feature vectors using a moving window.
+% Using padding
+% function y = createMovingWindowFeatures(in, dim)
+%     % Create feature vectors using a moving window with padding and filtering.
+%     % 
+%     % Parameters:
+%     %   in  - Input matrix
+%     %   dim - Dimension of the moving window (e.g., [3, 3] for a 3x3 window)
+%     % 
+%     % Output:
+%     %   y - Output matrix where each row is a feature vector from the moving window
+% 
+%     % Step 1: Pad the array to handle borders
+%     padSize = floor(dim / 2); % Padding size for each dimension
+%     paddedIn = padarray(in, padSize, 'symmetric'); % Symmetric padding
+% 
+%     % Step 2: Extract patches using im2col with sliding windows
+%     % 'sliding' mode extracts overlapping windows
+%     y = im2col(paddedIn, dim, 'sliding')';
+% 
+%     % Each row of y now corresponds to a flattened version of each window in the input
+% end
+% 
 
-rStep = floor(dim(1)/2);
-cStep = floor(dim(2)/2);
+% Laplacian
+% function y = createMovingWindowFeatures(in, dim)
+%     % Define the Laplacian filter
+%     laplacianFilter = fspecial('laplacian', 0.2); % 0.2 is a common alpha value for sharpening
+% 
+%     % Apply the Laplacian filter to the input image
+%     laplacianImage = imfilter(in, laplacianFilter, 'symmetric');
+% 
+%     % Determine the number of rows and columns to step through based on the window size
+%     rStep = floor(dim(1)/2);
+%     cStep = floor(dim(2)/2);
+% 
+%     % Pad the filtered image
+%     x1 = padarray(laplacianImage, [0, rStep], 'both');
+%     x = padarray(x1, [cStep, 0], 'both');
+% 
+%     % Initialize output array
+%     [row, col] = size(x);
+%     yCol = prod(dim); % Number of elements in each window
+%     y = zeros((row - 2 * rStep) * (col - 2 * cStep), yCol); % Preallocate the output matrix
+% 
+%     % Extract features using a moving window
+%     ct = 0;
+%     for rId = rStep + 1 : row - rStep
+%         for cId = cStep + 1 : col - cStep
+%             ct = ct + 1;
+%             % Reshape the window into a row vector and store in output
+%             y(ct, :) = reshape(x(rId - rStep : rId + rStep, cId - cStep : cId + cStep), 1, []);
+%         end
+%     end
+% end
 
-x1 = [zeros(size(in,1),rStep) in zeros(size(in,1),rStep)];
-x = [zeros(cStep,size(x1,2));x1;zeros(cStep,size(x1,2))];
+% Prewitt
+function y = createMovingWindowFeatures(in, dim)
+    % Define the Prewitt filters
+    prewittFilterX = fspecial('prewitt');
+    prewittFilterY = prewittFilterX';
 
-[row,col] = size(x);
-yCol = prod(dim);
-y = zeros((row-2*rStep)*(col-2*cStep), yCol);
-ct = 0;
-for rId = rStep+1:row-rStep
-    for cId = cStep+1:col-cStep
-        ct = ct + 1;
-        y(ct,:) = reshape(x(rId-rStep:rId+rStep,cId-cStep:cId+cStep),1,[]);
-    end
+    % Apply the Prewitt filters to get horizontal and vertical edges
+    prewittImageX = imfilter(double(in), prewittFilterX, 'symmetric');
+    prewittImageY = imfilter(double(in), prewittFilterY, 'symmetric');
+
+    % Compute the gradient magnitude
+    gradientMagnitude = sqrt(prewittImageX.^2 + prewittImageY.^2);
+
+    % Pad both the original and gradient images
+    paddedOriginal = padarray(in, floor(dim / 2), 'symmetric');
+    paddedGradient = padarray(gradientMagnitude, floor(dim / 2), 'symmetric');
+
+    % Use im2col to extract sliding windows and concatenate
+    originalWindows = im2col(double(paddedOriginal), dim, 'sliding')';
+    gradientWindows = im2col(paddedGradient, dim, 'sliding')';
+
+    % Concatenate the original and Prewitt-based features for each window
+    y = [originalWindows, gradientWindows];
 end
-end
+
+
+
+%Entropy
+% function y = createMovingWindowFeatures(in, dim)
+%     % Pad the input image
+%     paddedIn = padarray(in, floor(dim/2), 'symmetric');
+% 
+%     % Mean feature
+%     meanFilter = fspecial('average', dim);
+%     meanFeature = imfilter(double(paddedIn), meanFilter, 'symmetric');
+% 
+%     % Standard deviation feature
+%     localMeanSquare = imfilter(double(paddedIn).^2, meanFilter, 'symmetric');
+%     localVariance = localMeanSquare - meanFeature.^2;
+%     localVariance(localVariance < 0) = 0; % Ensure non-negative variance
+%     stdDevFeature = sqrt(localVariance);
+% 
+%     % Entropy feature
+%     entropyFeature = entropyfilt(paddedIn, true(dim));
+% 
+%     % Reshape each feature map into columns and concatenate
+%     y = [im2col(meanFeature, dim, 'sliding')';
+%          im2col(stdDevFeature, dim, 'sliding')';
+%          im2col(entropyFeature, dim, 'sliding')']';
+%     y = y';
+% end
+
+
+
 %% Calculate feature distance from cluster center.
 
 function dist = findDistance(centers,data)
@@ -401,6 +517,16 @@ function [center, newFuzzyPartMat, objFcn, covMat, brkCond,...
             covMat = [];
     end
 
+    % Calculate the traditional FCM objective function
+    %fcmObjective = sum(sum((dist.^2) .* max(memFcnMat, eps)));
+
+    % Calculate the custom fitness value
+    %fitnessValue = calculateFitness(center, data, options);
+
+    % Combine the traditional FCM objective and fitness function
+    %fprintf("Lambda:%5.2f\n", lambda);
+    %objFcn = fcmObjective + lambda * fitnessValue;
+
     % Calculate custom objective function
     objFcn = calculateFitness(center, data, options);
 
@@ -443,7 +569,12 @@ function fitness = calculateFitness(clusterCenters, data, options)
     PC = calculatePartitionCoefficient(U);
 
     % Compute the fitness value
-    fitness = (intra_cluster + SC) / PC;
+    %fitness = (intra_cluster + SC) / PC;
+
+    CE = calculateClassificationEntropy(U);
+
+    fitness = options.alpha * intra_cluster + ...
+        options.beta * SC + options.zeta * (1/PC + CE);
   
 end
 
