@@ -28,7 +28,7 @@ filteredDTrainFeatures = createMovingWindowFeatures(filteredDTrain,kDim);
 
 %%
 nClusters = 15;
-
+rng("default");
 options = struct();
 options.NumClusters = nClusters;
 options.ClusterCenters = [];
