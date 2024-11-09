@@ -1,4 +1,3 @@
-
 function showSegmentedImg(Img, segImg, centers, opt)
 
 if ~ isfield(opt, 'alpha')
@@ -62,7 +61,7 @@ for i=1:size(centers,1)
         % Find the pixel closest to each bat center
         [~, idx] = min(abs(double(Img(:)) - scaledCenters(i,j)));  % Find closest pixel to the center
         [x, y] = ind2sub([nRows, nCols], idx);  % Convert the 1D index to 2D coordinates (row, col)
-    
+
         % Plot the center as a red cross ('rx') on the segmented MRI image (add to legend)
 
         plot(y, x, colors, 'MarkerSize', 18, 'LineWidth', 2, 'DisplayName', centerNames);

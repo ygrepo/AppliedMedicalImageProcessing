@@ -97,10 +97,12 @@ sliceData = filteredD(:,:,slice_number);
 imshow(sliceData)
 xlabel("Original Denoised Image")
 subplot(1,3,2)
-imshow(ecFcmLabel(:,:,slice_number)/nClusters)
+FCMImg= ecFcmLabel(:,:,slice_number)/nClusters;
+imshow(FCMImg)
 xlabel("FCM Segmented Image")
 subplot(1,3,3)
-imshow(ecBATFcmLabel(:,:,slice_number)/nClusters)
+BATFCMImg = ecBATFcmLabel(:,:,slice_number)/nClusters;
+imshow(BATFCMImg)
 xlabel("BAT+FCM Segmented Image")
 %%
 fcmUT = fcmU';
@@ -119,46 +121,33 @@ SC = calculatePartitionIndex(batFCMUT, filteredDTrainFeatures, ...
 S = fuzzySeparationIndex(filteredDTrainFeatures, segImgInresults.centers,...
     segImgInresults.U, options.Exponent);
 fprintf("BAT+FCM PC:%5.3f-CE:%5.3f-SC:%5.3f-S:%5.3f\n", PC,CE,SC, S);
+
 %%
-% ----- Fixed Colors for the Clusters -----
-fixedColors = [
-    1 0 0;   % Red for Cluster 1
-    0 1 0;   % Green for Cluster 2
-    0 0 1;   % Blue for Cluster 3
-    1 1 0;   % Yellow for Cluster 4
-];
+% Define the centers and options for FCM
+opt = struct();
+opt.nClusters = nClusters;
+opt.centerColors = lines(15);  % 15 distinct colors for each center
+opt.centerNames = arrayfun(@(x) sprintf('Cluster %d', x), 1:15, 'UniformOutput', false);
 
-% Display the original and clustered MRI slice
-figure;
-h1= subplot(1, 3, 1);
-slice_number = 15;
-sliceData = filteredD(:,:,slice_number);
-imshow(sliceData, []);  % Display the original MRI slice
-title('Original MRI Slice', 'FontSize', 20, 'FontWeight','bold');
+% Create figure with tiled layout for two subplots
+figure
+tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'tight');  % 1 row, 2 columns
 
-h2 = subplot(1, 3, 2);
-optPlot = struct();
-optPlot.title = ['Segmented MRI Slice,FCM,',num2str(nClusters), ' Clusters' ];
-centers = [fcmCenters'];
-optPlot.centerColors = ['kx'];
-optPlot.fixedColors = fixedColors; 
-optPlot.centerNames = ['FCM Centers'];
-showSegmentedImg(sliceData, segFCMImg, centers, optPlot);
+% Plot FCM Centers
+centers = fcmCenters;
+sliceData = filteredD(:, :, 15);  % Example slice
+nexttile
+showCenters(sliceData, centers, opt);
+title('FCM Cluster Centers', 'FontSize', 20, 'FontWeight', 'bold');
 
+% Define the centers and options for BAT+FCM
+opt.centerNames = arrayfun(@(x) sprintf('Cluster %d', x), 1:15, 'UniformOutput', false);
+centers = segImgInresults.centers;
 
-h3 = subplot(1, 3, 3);
-optPlot = struct();
-optPlot.title = ['Segmented MRI Slice,BAT + FCM', num2str(nClusters), ' Clusters'];
-centers = [segImgInresults.batCenters];
-optPlot.centerColors = ['rx'];
-optPlot.fixedColors = fixedColors; 
-optPlot.centerNames = ['Bat Centers'];
-showSegmentedImg(sliceData, segBATFCMImg, centers, optPlot);
-
-% 'Position' is [left, bottom, width, height]
-set(h1, 'Position', [0.05, 0.1, 0.25, 0.8]);  % Adjust as needed
-set(h2, 'Position', [0.35, 0.1, 0.25, 0.8]);  % Adjust as needed
-set(h3, 'Position', [0.65, 0.1, 0.25, 0.8]);  % Adjust as needed
+% Plot BAT + FCM Centers
+nexttile
+showCenters(sliceData, centers, opt);
+title('BAT + FCM Cluster Centers', 'FontSize', 20, 'FontWeight', 'bold');
 
 %%
 function filteredI = denoiseImage(I)
