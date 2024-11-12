@@ -2,19 +2,19 @@ clearvars
 clc
 
 % Specify the path to your NIfTI file (3D volume)
-niftiFilePath = 'vs_gk_44_t1_vol.nii';
+niftiFilePath = '../data/vs_gk_5_t1_3D_aligned_volume.nii';
 
 % Load the NIfTI image data (3D volume)
 volumeData = niftiread(niftiFilePath);
-volumeData = permute(volumeData, [2 3 1]);
+%volumeData = permute(volumeData, [2 3 1]);
 volumeData = double(volumeData);
 
 % Specify the path to the NIfTI file for the binary mask
-maskFilePath = 'vs_gk_44_t1_aligned_vol_mask.nii';
+maskFilePath = '../data/vs_gk_5_t1_aligned_vol_mask.nii';
 
 % Load binary mask
 binaryMask = niftiread(maskFilePath);
-binaryMask = permute(binaryMask, [2 3 1]);
+%binaryMask = permute(binaryMask, [2 3 1]);
 binaryMask = double(binaryMask);  % Convert to double for processing
 
 % Find the slice with the largest tumor region
@@ -47,26 +47,49 @@ end
 
 %%
 % Apply Fuzzy C-Means clustering on the selected slice
+% Load and Preprocess the Selected Slice
 sliceData = volumeData(:, :, maxSliceIndex);
 preprocessedSliceData = imadjust(mat2gray(sliceData));  % Contrast enhancement
-% Apply FCM clustering on the preprocessed slice
-nClusters = 5;  % Adjust based on experimentation
+
+% Apply FCM Clustering on the Preprocessed Slice
+nClusters = 15;  % Adjust based on experimentation
 [clusterCenters, membership] = fcm(double(preprocessedSliceData(:)), nClusters);
 
-% Display cluster centers to help identify the tumor cluster
+% Display Cluster Centers to Help Identify the Tumor Cluster
 disp('Cluster Centers:');
 disp(clusterCenters);
 
-% Reshape the membership values to match the image dimensions
+% Reshape the Membership Values to Match the Image Dimensions
 [~, maxMembership] = max(membership, [], 1);
 segmentedSlice = reshape(maxMembership, size(preprocessedSliceData));
 
-% Visualize each cluster to identify which one best matches the tumor region
-for k = 1:nClusters
-    figure;
-    imshow(segmentedSlice == k, []);
-    title(['Cluster ', num2str(k)]);
-end
+% Select the Cluster with Highest Intensity (Assuming Tumor Has High Intensity)
+% You may need to adjust this selection depending on your data
+[~, tumorCluster] = max(clusterCenters);
+
+% Generate a Binary Mask for the Detected Tumor Region
+detectedTumorMask = (segmentedSlice == tumorCluster);
+
+% Load or Define the Original Tumor Mask (e.g., manually annotated or ground truth)
+originalTumorMask = tumorOverlay; 
+
+% Display Side-by-Side Comparison of Original Tumor Mask and Detected Tumor Region
+figure;
+subplot(1, 2, 1);
+imshow(originalTumorMask, []);
+title('Original Tumor Mask');
+
+subplot(1, 2, 2);
+imshow(preprocessedSliceData, []);
+hold on;
+
+% Overlay the Detected Tumor Mask in Red
+redOverlay = cat(3, ones(size(detectedTumorMask)), zeros(size(detectedTumorMask)), zeros(size(detectedTumorMask)));
+h = imshow(redOverlay);
+set(h, 'AlphaData', detectedTumorMask * 0.5);  % Adjust transparency level
+title('Detected Tumor Region After FCM');
+hold off;
+
 %%
 % Use the selected slice data for clustering
 sliceData = volumeData(:, :, maxSliceIndex);
@@ -77,7 +100,7 @@ trainFeatures = createMovingWindowFeatures(trainingData, kDim);  % Extract movin
 
 %% BAT + FCM Clustering Setup
 rng("default")
-nClusters = 10;  % Adjust this parameter based on the data
+nClusters = 15;  % Adjust this parameter based on the data
 options = struct();
 options.NumClusters = nClusters;
 options.ClusterCenters = [];
@@ -116,21 +139,29 @@ ecDist = findDistance(segImgInresults.centers, trainFeatures);
 [~, ecBATFcmLabel] = min(ecDist', [], 2); 
 ecBATFcmLabel = reshape(ecBATFcmLabel, [r, c]);  % Reshape back to 2D
 
-% Calculate overlap for each cluster
+% Calculate overlap and compactness metrics for each cluster
 overlapCounts = zeros(1, nClusters);
 overlapPercentage = zeros(1, nClusters);
+compactnessScore = zeros(1, nClusters);
 
 for clusterId = 1:nClusters
     clusterMask = (ecBATFcmLabel == clusterId);
     overlapCounts(clusterId) = sum(clusterMask(:) & tumorOverlay(:));  % Count overlap with tumor mask
     overlapPercentage(clusterId) = overlapCounts(clusterId) / sum(clusterMask(:)) * 100;
+    
+    % Calculate compactness as inverse of average distance to the cluster center
+    if sum(clusterMask(:)) > 0
+        clusterPoints = trainFeatures(clusterMask(:), :);
+        averageDistToCenter = mean(pdist2(clusterPoints, segImgInresults.centers(clusterId, :)));
+        compactnessScore(clusterId) = 1 / averageDistToCenter;  % Higher score for more compact clusters
+    end
 end
 
-% Select the cluster with the highest overlap percentage
-[~, tumorCluster] = max(overlapPercentage);
+% Select the tumor cluster with highest overlap * compactness score
+[~, tumorCluster] = max(overlapPercentage .* compactnessScore);
 
-% Display the detected tumor portion on the original image
-detectedTumorRegion = (ecBATFcmLabel == tumorCluster);  % Mask for tumor-detected region
+% Display the detected tumor region
+detectedTumorRegion = (ecBATFcmLabel == tumorCluster);
 
 figure;
 subplot(1, 2, 1);
@@ -141,142 +172,14 @@ subplot(1, 2, 2);
 imshow(volumeData(:, :, maxSliceIndex), []);
 hold on;
 
-% Create a red overlay for the detected tumor portion
-redOverlayDetected = cat(3, ones(size(detectedTumorRegion)), zeros(size(detectedTumorRegion)), zeros(size(detectedTumorRegion)));
+% Create a red overlay for the detected tumor region
+redOverlayDetected = cat(3, ones(size(detectedTumorRegion)),...
+    zeros(size(detectedTumorRegion)), zeros(size(detectedTumorRegion)));
 h = imshow(redOverlayDetected);
 set(h, 'AlphaData', detectedTumorRegion * 0.5);  % Make the detected tumor area semi-transparent
 
 title(['Detected Tumor Region on Slice ', num2str(maxSliceIndex)]);
 hold off;
-
-% clearvars 
-% clc
-% 
-% % Specify the path to your NIfTI file (3D volume)
-% niftiFilePath = 'vs_gk_44_t1_vol.nii';
-% 
-% % Load the NIfTI image data (3D volume)
-% volumeData = niftiread(niftiFilePath);
-% volumeData = permute(volumeData, [2 3 1]);
-% volumeData = double(volumeData);
-% 
-% % Specify the path to the NIfTI file for the binary mask
-% maskFilePath = 'vs_gk_44_t1_aligned_vol_mask.nii';
-% 
-% % Load binary mask
-% binaryMask = niftiread(maskFilePath);
-% binaryMask = permute(binaryMask, [2 3 1]);
-% binaryMask = double(binaryMask);  % Convert to double for processing
-% 
-% % Find the slice with the largest tumor region
-% tumorPixelCounts = squeeze(sum(sum(binaryMask, 1), 2));  % Sum tumor pixels in each slice
-% [maxPixels, maxSliceIndex] = max(tumorPixelCounts);  % Find the slice with the most tumor pixels
-% 
-% if maxPixels == 0
-%     warning('No tumor pixels found in the entire volume.');
-% else
-%     % Display the selected slice with the largest tumor area
-%     figure;
-%     subplot(1, 2, 1);
-%     imshow(volumeData(:, :, maxSliceIndex), []);
-%     title(['Original Slice ', num2str(maxSliceIndex)]);
-% 
-%     % Overlay the tumor on the original image
-%     subplot(1, 2, 2);
-%     imshow(volumeData(:, :, maxSliceIndex), []);
-%     hold on;
-% 
-%     % Create a red overlay for the tumor
-%     tumorOverlay = binaryMask(:, :, maxSliceIndex);
-%     redOverlay = cat(3, ones(size(tumorOverlay)), zeros(size(tumorOverlay)), zeros(size(tumorOverlay)));  % Red overlay
-%     h = imshow(redOverlay);
-%     set(h, 'AlphaData', tumorOverlay * 0.5);  % Set transparency for visibility
-% 
-%     title(['Tumor Overlay on Slice ', num2str(maxSliceIndex)]);
-%     hold off;
-% end
-% 
-% % Use the selected slice data for clustering
-% sliceData = volumeData(:, :, maxSliceIndex);
-% [r, c] = size(sliceData);  % Get dimensions
-% trainingData = reshape(sliceData, [r * c, 1]);  % Reshape to a 2D array for clustering
-% kDim = [3 3];
-% trainFeatures = createMovingWindowFeatures(trainingData, kDim);  % Extract moving window features
-% 
-% %% BAT + FCM Clustering Setup
-% rng("default")
-% nClusters = 10;  % Adjust this parameter based on the data
-% options = struct();
-% options.NumClusters = nClusters;
-% options.ClusterCenters = [];
-% options.Exponent = 2;
-% options.MaxNumIteration = 10;
-% options.DistanceMetric = 'euclidean';
-% options.MinImprovement = 1e-5;
-% options.Verbose = 1;
-% options.ClusterVolume = 1;
-% options.lambda = 0.1;
-% options.alpha = 1;
-% options.beta = 0.5;
-% options.zeta = 1.5;
-% 
-% % BAT Options.
-% options.nBats = 50;
-% options.BATIterMax = 10;
-% options.lowerBound = min(trainFeatures);
-% options.upperBound = max(trainFeatures);
-% options.Qmin = 0;
-% options.Qmax = 2;
-% options.loudness = 0.5;
-% options.loudnessCoefficient = .9;
-% options.pulseRate = 0.5;
-% options.gamma = 0.95;
-% options.chaotic = false;
-% options.MinNumIteration = 50;
-% options.UsePerturbation = false;
-% options.PerturbationFactor = 0.01;
-% 
-% % Apply BAT + Fuzzy C-Means (FCM) clustering
-% segImgInresults = MFBAFCM(trainFeatures, options);
-% 
-% %% Post-processing: Identify Tumor Cluster with Highest Overlap
-% ecDist = findDistance(segImgInresults.centers, trainFeatures);
-% [~, ecBATFcmLabel] = min(ecDist', [], 2); 
-% ecBATFcmLabel = reshape(ecBATFcmLabel, [r, c]);  % Reshape back to 2D
-% 
-% % Calculate overlap for each cluster
-% overlapCounts = zeros(1, nClusters);
-% overlapPercentage = zeros(1, nClusters);
-% 
-% for clusterId = 1:nClusters
-%     clusterMask = (ecBATFcmLabel == clusterId);
-%     overlapCounts(clusterId) = sum(clusterMask(:) & tumorOverlay(:));  % Count overlap with tumor mask
-%     overlapPercentage(clusterId) = overlapCounts(clusterId) / sum(clusterMask(:)) * 100;
-% end
-% 
-% % Select the cluster with the highest overlap percentage
-% [~, tumorCluster] = max(overlapPercentage);
-% 
-% % Display the detected tumor portion on the original image
-% detectedTumorRegion = (ecBATFcmLabel == tumorCluster);  % Mask for tumor-detected region
-% 
-% figure;
-% subplot(1, 2, 1);
-% imshow(volumeData(:, :, maxSliceIndex), []);
-% title(['Original Slice ', num2str(maxSliceIndex)]);
-% 
-% subplot(1, 2, 2);
-% imshow(volumeData(:, :, maxSliceIndex), []);
-% hold on;
-% 
-% % Create a red overlay for the detected tumor portion
-% redOverlayDetected = cat(3, ones(size(detectedTumorRegion)), zeros(size(detectedTumorRegion)), zeros(size(detectedTumorRegion)));
-% h = imshow(redOverlayDetected);
-% set(h, 'AlphaData', detectedTumorRegion * 0.5);  % Make the detected tumor area semi-transparent
-% 
-% title(['Detected Tumor Region on Slice ', num2str(maxSliceIndex)]);
-% hold off;
-
 %%
 % Visualization of the BAT + FCM segmented results
 figure;
@@ -290,7 +193,6 @@ imshow(BATFCMImg, []);
 xlabel("BAT+FCM Segmented Tumor Region");
 
 %% Tumor Segmentation Evaluation
-% Tumor Segmentation Evaluation
 refTumor = find(tumorOverlay == 1);  % Reference tumor pixel indices
 tumorCluster = 3;  % Set the cluster ID you believe represents the tumor
 
@@ -351,7 +253,6 @@ for rId = rStep+1:row-rStep
     end
 end
 end
-
 
 
 %% Calculate feature distance from cluster center.
