@@ -56,20 +56,12 @@ preprocessedSliceData = imadjust(mat2gray(sliceData));
 
 % Apply FCM Clustering
 nClusters = 5;
-options = fcmOptions(NumClusters=nClusters, MaxNumIteration=50);
+options = fcmOptions(NumClusters=nClusters, MaxNumIteration=10);
 [clusterCenters, membership] = fcm(double(preprocessedSliceData(:)), options);
 
-% Ensure that tumorOverlay is a logical mask
-tumorOverlay = logical(binaryMask(:, :, maxSliceIndex));
-
-% Label connected components in tumorOverlay
+% Label connected components in the original tumor mask and find the largest one
 labeledComponents = bwlabel(tumorOverlay);
-
-% Find the most common label in the tumor region to get the largest component
-tumorLabel = mode(labeledComponents(tumorOverlay & labeledComponents > 0));
-
-% Define tumorComponent as the largest connected component
-tumorComponent = (labeledComponents == tumorLabel);
+tumorComponent = (labeledComponents == mode(labeledComponents(tumorOverlay)));
 
 % Calculate median intensity of the tumor component in preprocessedSliceData
 tumorIntensityMedian = median(preprocessedSliceData(tumorComponent));
@@ -89,10 +81,14 @@ detectedTumorMask = (segmentedSlice == tumorCluster);
 
 % Limit detection to regions near the tumor component
 dilatedTumorComponent = imdilate(tumorComponent, strel('disk', 10));  % Expand area slightly for spatial proximity
-detectedTumorMask = detectedTumorMask & dilatedTumorComponent;
+detectedTumorMask = initialDetectedTumorMask & dilatedTumorComponent;
 
 % Post-process to retain only the largest connected component
 detectedTumorMask = bwareafilt(detectedTumorMask, 1);
+
+% Apply an intensity threshold to refine the tumor mask
+%intensityThreshold = 0.8 * max(preprocessedSliceData(detectedTumorMask));  % Adjust threshold as needed
+%detectedTumorMask = detectedTumorMask & (preprocessedSliceData >= intensityThreshold);
 
 %%
 % Display original and detected masks
