@@ -1,287 +1,363 @@
-clearvars 
-clearvars 
-clc
+% Specify the directory containing the image and mask files
+dataDir = '../data/';
 
-% Specify the path to your NIfTI file (3D volume)
-niftiFilePath = '../data/vs_gk_5_t1_3D_aligned_volume.nii';
+% Get a list of all image and mask files in the directory
+imageFiles = dir(fullfile(dataDir, 'vs_gk_*_t1_3D_aligned_volume.nii'));
+maskFiles = dir(fullfile(dataDir, 'vs_gk_*_t1_aligned_vol_mask.nii'));
 
-% Load the NIfTI image data (3D volume)
-volumeData = niftiread(niftiFilePath);
-volumeData = double(volumeData);
+% Initialize cell arrays to store paths for images and masks
+imagePaths = {};
+maskPaths = {};
 
-% Specify the path to the NIfTI file for the binary mask
-maskFilePath = '../data/vs_gk_5_t1_aligned_vol_mask.nii';
+% Pair image and mask files based on matching identifiers
+for i = 1:numel(imageFiles)
+    % Full path of the image file
+    imagePath = fullfile(dataDir, imageFiles(i).name);
+    
+    % Extract the full identifier (e.g., 'vs_gk_36_t1') from the image file name
+    identifier = regexp(imageFiles(i).name, 'vs_gk_\d+_t1', 'match', 'once');
+    
+    % Find the corresponding mask file with the exact identifier
+    maskIdx = find(contains({maskFiles.name}, identifier));
+    
+    % Check if exactly one mask file is found for the identifier
+    if numel(maskIdx) == 1
+        % Full path of the mask file
+        maskPath = fullfile(dataDir, maskFiles(maskIdx).name);
+        
+        % Store the matched paths
+        imagePaths{end + 1} = imagePath;
+        maskPaths{end + 1} = maskPath;
+    elseif numel(maskIdx) > 1
+        % Print a warning if multiple mask files are found
+        fprintf('Warning: Multiple masks found for %s\n', identifier);
+    else
+        % Print a warning if no matching mask file is found
+        fprintf('Warning: No mask found for %s\n', imageFiles(i).name);
+    end
+end
 
-% Load binary mask
-binaryMask = niftiread(maskFilePath);
-binaryMask = double(binaryMask);  % Convert to double for processing
+% Display the matched pairs to verify correctness
+for j = 1:numel(imagePaths)
+    fprintf('Image: %s\n', imagePaths{j});
+    fprintf('Mask: %s\n\n', maskPaths{j});
+end
 
-% Find the slice with the largest tumor region
-tumorPixelCounts = squeeze(sum(sum(binaryMask, 1), 2));  % Sum tumor pixels in each slice
-[maxPixels, maxSliceIndex] = max(tumorPixelCounts);  % Find the slice with the most tumor pixels
 
-if maxPixels == 0
-    warning('No tumor pixels found in the entire volume.');
-else
-    % Display the selected slice with the largest tumor area
+
+% Split data into training and test sets (e.g., 80% training, 20% test)
+numSamples = numel(imagePaths);
+randIndices = randperm(numSamples);
+numTrain = round(0.8 * numSamples);
+
+trainIndices = randIndices(1:numTrain);
+testIndices = randIndices(numTrain + 1:end);
+
+trainingImagePaths = imagePaths(trainIndices);
+trainingMaskPaths = maskPaths(trainIndices);
+
+testImagePaths = imagePaths(testIndices);
+testMaskPaths = maskPaths(testIndices);
+
+% Display the number of samples in each set
+fprintf('Number of training samples: %d\n', numel(trainingImagePaths));
+fprintf('Number of test samples: %d\n', numel(testImagePaths));
+%%
+% Initialize variables to accumulate intensity values, spatial information, and areas
+intensityValues = [];
+centroids = [];
+boundingBoxDiagonals = [];
+tumorAreas = [];  % To store area of tumor regions for min and max area calculation
+
+% Loop through the training set
+for i = 1:numel(trainingImagePaths)
+    % Load image and mask
+    fprintf("Image Data:%s\n", trainingImagePaths{i});
+    fprintf("Mask:%s\n", trainingMaskPaths{i});
+    imageData = niftiread(trainingImagePaths{i});
+    maskData = niftiread(trainingMaskPaths{i});
+    
+    % Convert to double for processing
+    imageData = double(imageData);
+    maskData = logical(maskData);  % Ensure mask is binary
+    
+    % Find the slice with the largest tumor region
+    tumorPixelCounts = squeeze(sum(sum(maskData, 1), 2));
+    [~, maxSliceIndex] = max(tumorPixelCounts);
+    sliceData = imageData(:, :, maxSliceIndex);
+    maskSlice = maskData(:, :, maxSliceIndex);
+    
+    % Collect intensity values within the tumor region
+    intensityValues = [intensityValues; sliceData(maskSlice)];
+    
+    % Calculate the centroid, bounding box, and area of the tumor region in this slice
+    stats = regionprops(maskSlice, 'Centroid', 'BoundingBox', 'Area');
+    if ~isempty(stats)
+        % Centroid
+        centroids = [centroids; stats.Centroid];
+        
+        % Bounding box diagonal
+        boundingBox = stats.BoundingBox;
+        boundingBoxDiagonal = sqrt(boundingBox(3)^2 + boundingBox(4)^2);
+        boundingBoxDiagonals = [boundingBoxDiagonals; boundingBoxDiagonal];
+        
+        % Tumor area
+        tumorAreas = [tumorAreas; stats.Area];
+    end
+end
+
+% Calculate tumorIntensityRange as the min and max of all intensity values
+tumorIntensityRange = [min(intensityValues), max(intensityValues)];
+
+% Calculate roiCenter as the mean of the centroids
+roiCenter = mean(centroids, 1);
+
+% Calculate roiRadius as the mean of bounding box diagonals, representing a typical tumor size
+roiRadius = mean(boundingBoxDiagonals) / 2;  % Approximate radius
+
+% Calculate minArea and maxArea based on the training set tumor areas
+minArea = min(tumorAreas);
+maxArea = max(tumorAreas);
+
+% Display the extracted information
+fprintf('Tumor Intensity Range: [%f, %f]\n', tumorIntensityRange(1), tumorIntensityRange(2));
+fprintf('ROI Center: [%.2f, %.2f]\n', roiCenter(1), roiCenter(2));
+fprintf('ROI Radius: %.2f\n', roiRadius);
+fprintf('Min Tumor Area: %.2f\n', minArea);
+fprintf('Max Tumor Area: %.2f\n', maxArea);
+
+
+%%
+% Parameters derived from training set
+nClusters = 5;  % Number of clusters for FCM
+
+% Assume these values were calculated from the training set as shown previously
+% tumorIntensityRange = [minIntensity, maxIntensity]; % Calculated from training
+% roiCenter = [xCenter, yCenter]; % Calculated from training
+% roiRadius = radius; % Calculated from training
+% minArea = minimum tumor area observed in training set
+% maxArea = maximum tumor area observed in training set
+
+detectedMasks = cell(size(testImagePaths));  % Store results for each test image
+
+for i = 1:numel(testImagePaths)
+    % Load the test image and ground truth mask
+    imageData = niftiread(testImagePaths{i});
+    maskData = niftiread(testMaskPaths{i});  % Load the original ground truth mask
+    
+    % Calculate maxSliceIndex based on the slice with the largest area
+    sliceTumorPixelCounts = squeeze(sum(sum(maskData, 1), 2));
+    [~, maxSliceIndex] = max(sliceTumorPixelCounts);
+    
+    % Select the slice and the corresponding mask slice
+    sliceData = imageData(:, :, maxSliceIndex);
+    maskSlice = logical(maskData(:, :, maxSliceIndex));
+    
+    % Call the detection function with test image and learned parameters
+    detectedMask = fcm_predict_tumor(testImagePaths{i}, nClusters, tumorIntensityRange, minArea, maxArea, roiCenter, roiRadius, maxSliceIndex);
+    
+    % Store the detected mask for further use if needed
+    detectedMasks{i} = detectedMask;
+    
+    % Display the original slice with the ground truth tumor overlay
     figure;
     subplot(1, 2, 1);
-    imshow(volumeData(:, :, maxSliceIndex), []);
-    title(['Original Slice ', num2str(maxSliceIndex)]);
-
-    % Overlay the tumor on the original image
-    subplot(1, 2, 2);
-    imshow(volumeData(:, :, maxSliceIndex), []);
+    imshow(sliceData, []);
     hold on;
-
-    % Create a red overlay for the tumor
-    tumorOverlay = binaryMask(:, :, maxSliceIndex);
-    redOverlay = cat(3, ones(size(tumorOverlay)), zeros(size(tumorOverlay)), zeros(size(tumorOverlay)));  % Red overlay
-    h = imshow(redOverlay);
-    set(h, 'AlphaData', tumorOverlay * 0.5);  % Set transparency for visibility
-
-    title(['Tumor Overlay on Slice ', num2str(maxSliceIndex)]);
+    % Create a red overlay for the ground truth mask
+    originalOverlay = cat(3, ones(size(maskSlice)), zeros(size(maskSlice)), zeros(size(maskSlice)));
+    hOriginal = imshow(originalOverlay);
+    set(hOriginal, 'AlphaData', maskSlice * 0.5);  % Adjust transparency for visibility
+    title('Original Test Slice with Ground Truth Tumor Overlay');
+    hold off;
+    
+    % Display the same slice with the predicted tumor overlay
+    subplot(1, 2, 2);
+    imshow(sliceData, []);
+    hold on;
+    % Create a red overlay for the predicted tumor region
+    predictedOverlay = cat(3, ones(size(detectedMask)), zeros(size(detectedMask)), zeros(size(detectedMask)));
+    hPredicted = imshow(predictedOverlay);
+    set(hPredicted, 'AlphaData', detectedMask * 0.5);  % Adjust transparency for visibility
+    title('Original Test Slice with Predicted Tumor Overlay');
     hold off;
 end
 
 
 %%
-% Apply Fuzzy C-Means clustering on the selected slice
-    % Load and Preprocess Slice
-sliceData = volumeData(:, :, maxSliceIndex);
-preprocessedSliceData = imadjust(mat2gray(sliceData));
-% roi = imdilate(binaryMask(:, :, maxSliceIndex), strel('disk', 10));  % Dilate to include nearby regions
-% preprocessedSliceData(~roi) = 0;  % Mask out regions outside the ROI
-% 
+% Histogram Matching
+% Specify the path to the known reference image and mask
+referenceImagePath = fullfile(dataDir, 'vs_gk_5_t1_3D_aligned_volume.nii');
+referenceMaskPath = fullfile(dataDir, 'vs_gk_5_t1_aligned_vol_mask.nii');
 
-% Apply FCM Clustering
-nClusters = 5;
-options = fcmOptions(NumClusters=nClusters, MaxNumIteration=10);
-[clusterCenters, membership] = fcm(double(preprocessedSliceData(:)), options);
+% Load the reference image and mask
+referenceImageData = niftiread(referenceImagePath);
+referenceMaskData = niftiread(referenceMaskPath);
 
-% Label connected components in the original tumor mask and find the largest one
-labeledComponents = bwlabel(tumorOverlay);
-tumorComponent = (labeledComponents == mode(labeledComponents(tumorOverlay)));
+% Convert the reference mask to logical for processing
+referenceMaskData = logical(referenceMaskData);
 
-% Calculate median intensity of the tumor component in preprocessedSliceData
-tumorIntensityMedian = median(preprocessedSliceData(tumorComponent));
+% Calculate maxSliceIndex for the reference image based on the largest tumor area
+tumorPixelCountsRef = squeeze(sum(sum(referenceMaskData, 1), 2));
+[~, maxSliceIndexRef] = max(tumorPixelCountsRef);
 
-% Find cluster center closest to tumor intensity median
-[~, tumorCluster] = min(abs(clusterCenters - tumorIntensityMedian));
+% Select the reference slice for histogram matching
+referenceSlice = referenceImageData(:, :, maxSliceIndexRef);
+
+% Parameters derived from training set
+nClusters = 5;  % Number of clusters for FCM
+
+% Assume these values were calculated from the training set as shown previously
+% tumorIntensityRange = [minIntensity, maxIntensity]; % Calculated from training
+% roiCenter = [xCenter, yCenter]; % Calculated from training
+% roiRadius = radius; % Calculated from training
+% minArea = minimum tumor area observed in training set
+% maxArea = maximum tumor area observed in training set
+
+detectedMasks = cell(size(testImagePaths));  % Store results for each test image
+
+for i = 1:numel(testImagePaths)
+    % Load the test image and its ground truth mask
+    imageData = niftiread(testImagePaths{i});
+    maskData = niftiread(testMaskPaths{i});  % Load the ground truth mask
     
-% Determine tumor cluster (assume highest intensity for tumor)
-%[~, tumorCluster] = max(clusterCenters);
+    % Convert mask to logical format
+    maskData = logical(maskData);
 
-% Reshape the membership values to match slice dimensions
-[~, maxMembership] = max(membership, [], 1);
-segmentedSlice = reshape(maxMembership, size(preprocessedSliceData));
+    % Calculate maxSliceIndex based on the slice with the largest area in the test mask
+    sliceTumorPixelCounts = squeeze(sum(sum(maskData, 1), 2));
+    [~, maxSliceIndex] = max(sliceTumorPixelCounts);
+    
+    % Select the test slice and match its histogram to the reference slice
+    testSlice = imageData(:, :, maxSliceIndex);
+    matchedSlice = imhistmatch(testSlice, referenceSlice);  % Histogram match to reference
 
-% Generate binary mask for detected tumor region
-detectedTumorMask = (segmentedSlice == tumorCluster);
+    % Replace the slice in the image data with the histogram-matched version
+    imageData(:, :, maxSliceIndex) = matchedSlice;
+    
+    % Call the detection function with the histogram-matched test image and learned parameters
+    detectedMask = fcm_predict_tumor(testImagePaths{i}, nClusters,...
+        tumorIntensityRange, minArea, maxArea, roiCenter, roiRadius, maxSliceIndex, true);
+    
+    % Store the detected mask for further use if needed
+    detectedMasks{i} = detectedMask;
+    
+    % Display the original slice with the ground truth tumor overlay
+    figure;
+    subplot(1, 3, 1);
+    imshow(testSlice, []);
+    hold on;
+    % Create a red overlay for the ground truth mask
+    originalOverlay = cat(3, ones(size(maskData(:, :, maxSliceIndex))), zeros(size(maskData(:, :, maxSliceIndex))), zeros(size(maskData(:, :, maxSliceIndex))));
+    hOriginal = imshow(originalOverlay);
+    set(hOriginal, 'AlphaData', maskData(:, :, maxSliceIndex) * 0.5);  % Adjust transparency for visibility
+    title('Original Test Slice with Ground Truth Tumor Overlay');
+    hold off;
+    
+    % Display the histogram-matched test slice
+    subplot(1, 3, 2);
+    imshow(matchedSlice, []);
+    title('Histogram Matched Test Slice');
+    
+    % Display the detected tumor overlay on the original test slice
+    subplot(1, 3, 3);
+    imshow(testSlice, []);
+    hold on;
+    % Create a red overlay for the predicted tumor region
+    predictedOverlay = cat(3, ones(size(detectedMask)), zeros(size(detectedMask)), zeros(size(detectedMask)));
+    hPredicted = imshow(predictedOverlay);
+    set(hPredicted, 'AlphaData', detectedMask * 0.5);  % Adjust transparency for visibility
+    title('Detected Tumor Region After FCM');
+    hold off;
+end
 
-% Limit detection to regions near the tumor component
-dilatedTumorComponent = imdilate(tumorComponent, strel('disk', 10));  % Expand area slightly for spatial proximity
-detectedTumorMask = initialDetectedTumorMask & dilatedTumorComponent;
-
-% Post-process to retain only the largest connected component
-detectedTumorMask = bwareafilt(detectedTumorMask, 1);
-
-% Apply an intensity threshold to refine the tumor mask
-%intensityThreshold = 0.8 * max(preprocessedSliceData(detectedTumorMask));  % Adjust threshold as needed
-%detectedTumorMask = detectedTumorMask & (preprocessedSliceData >= intensityThreshold);
 
 %%
-% Display original and detected masks
-figure;
-subplot(1, 2, 1);
-imshow(tumorOverlay, []);
-title('Original Tumor Mask');
+function detectedTumorMask = fcm_predict_tumor(imagePath, nClusters,...
+    tumorIntensityRange, minArea, maxArea, roiCenter, roiRadius, maxSliceIndex,...
+    useBAT)
+    % Load the image
+    volumeData = niftiread(imagePath);
+    sliceData = volumeData(:, :, maxSliceIndex);  % Use the slice of interest
+    preprocessedSliceData = imadjust(mat2gray(sliceData));
+    data = double(preprocessedSliceData(:));
 
-subplot(1, 2, 2);
-imshow(preprocessedSliceData, []);
-hold on;
-redOverlay = cat(3, ones(size(detectedTumorMask)),...
-    zeros(size(detectedTumorMask)), zeros(size(detectedTumorMask)));
-h = imshow(redOverlay);
-set(h, 'AlphaData', detectedTumorMask * 0.5);
-title('Detected Tumor Region After FCM');
-hold off;
-
-%%
-% Use the selected slice data for clustering
-sliceData = volumeData(:, :, maxSliceIndex);
-[r, c] = size(sliceData);  % Get dimensions
-trainingData = reshape(sliceData, [r * c, 1]);  % Reshape to a 2D array for clustering
-kDim = [3 3];
-trainFeatures = createMovingWindowFeatures(trainingData, kDim);  % Extract moving window features
-
-%% BAT + FCM Clustering Setup
-rng("default")
-nClusters = 15;  % Adjust this parameter based on the data
-options = struct();
-options.NumClusters = nClusters;
-options.ClusterCenters = [];
-options.Exponent = 2;
-options.MaxNumIteration = 10;
-options.DistanceMetric = 'euclidean';
-options.MinImprovement = 1e-5;
-options.Verbose = 1;
-options.ClusterVolume = 1;
-options.lambda = 0.1;
-options.alpha = 1;
-options.beta = 0.5;
-options.zeta = 1.5;
-
-% BAT Options.
-options.nBats = 50;
-options.BATIterMax = 10;
-options.lowerBound = min(trainFeatures);
-options.upperBound = max(trainFeatures);
-options.Qmin = 0;
-options.Qmax = 2;
-options.loudness = 0.5;
-options.loudnessCoefficient = .9;
-options.pulseRate = 0.5;
-options.gamma = 0.95;
-options.chaotic = false;
-options.MinNumIteration = 50;
-options.UsePerturbation = false;
-options.PerturbationFactor = 0.01;
-
-% Apply BAT + Fuzzy C-Means (FCM) clustering
-segImgInresults = MFBAFCM(trainFeatures, options);
-
-%% Post-processing: Identify Tumor Cluster with Highest Overlap
-ecDist = findDistance(segImgInresults.centers, trainFeatures);
-[~, ecBATFcmLabel] = min(ecDist', [], 2); 
-ecBATFcmLabel = reshape(ecBATFcmLabel, [r, c]);  % Reshape back to 2D
-
-% Calculate overlap and compactness metrics for each cluster
-overlapCounts = zeros(1, nClusters);
-overlapPercentage = zeros(1, nClusters);
-compactnessScore = zeros(1, nClusters);
-
-for clusterId = 1:nClusters
-    clusterMask = (ecBATFcmLabel == clusterId);
-    overlapCounts(clusterId) = sum(clusterMask(:) & tumorOverlay(:));  % Count overlap with tumor mask
-    overlapPercentage(clusterId) = overlapCounts(clusterId) / sum(clusterMask(:)) * 100;
+    rng("default")
+    % Apply FCM Clustering
+    if useBAT
+    % Apply FCM Clustering
+    options = struct();
+    options.NumClusters = nClusters;
+    options.ClusterCenters = [];
+    options.Exponent = 2;
+    options.MaxNumIteration = 10;
+    options.DistanceMetric = 'euclidean';
+    options.MinImprovement = 1e-5;
+    options.Verbose = 1;
+    options.ClusterVolume = 1;
+    options.lambda = 0.1;
+    options.alpha = 1;
+    options.beta = 0.5;
+    options.zeta = 1.5;
     
-    % Calculate compactness as inverse of average distance to the cluster center
-    if sum(clusterMask(:)) > 0
-        clusterPoints = trainFeatures(clusterMask(:), :);
-        averageDistToCenter = mean(pdist2(clusterPoints, segImgInresults.centers(clusterId, :)));
-        compactnessScore(clusterId) = 1 / averageDistToCenter;  % Higher score for more compact clusters
+    % BAT Options.
+    options.nBats = 50;
+    options.BATIterMax = 10;
+    options.lowerBound = min(data);
+    options.upperBound = max(data);
+    options.Qmin = 0;
+    options.Qmax = 2;
+    options.loudness = 0.5;
+    options.loudnessCoefficient = .9;
+    options.pulseRate = 0.5;
+    options.gamma = 0.95;
+    options.chaotic = false;
+    options.MinNumIteration = 50;
+    options.UsePerturbation = false;
+    options.PerturbationFactor = 0.01;
+    
+    % Apply BAT + Fuzzy C-Means (FCM) clustering
+    segImgInresults = MFBAFCM(data, options);
+    clusterCenters = segImgInresults.centers;
+    membership = segImgInresults.U;
+    else
+     options = fcmOptions(NumClusters=nClusters, MaxNumIteration=10);
+     [clusterCenters, membership] = fcm(double(preprocessedSliceData(:)), options);
+    end 
+
+    % Reshape membership to match image dimensions
+    [~, maxMembership] = max(membership, [], 1);
+    segmentedSlice = reshape(maxMembership, size(preprocessedSliceData));
+    
+    % Select the cluster that falls within the tumor intensity range
+    tumorClusterIdx = find(clusterCenters >= tumorIntensityRange(1) & clusterCenters <= tumorIntensityRange(2));
+    if isempty(tumorClusterIdx)
+        warning('No cluster found within the tumor intensity range.');
+        detectedTumorMask = false(size(preprocessedSliceData));
+        return;
+    else
+        % Create an initial mask for the detected tumor region
+        detectedTumorMask = ismember(segmentedSlice, tumorClusterIdx);
+    end
+    
+    % Apply spatial constraints: Restrict to ROI based on training statistics
+    [X, Y] = meshgrid(1:size(preprocessedSliceData, 2), 1:size(preprocessedSliceData, 1));
+    distanceFromCenter = sqrt((X - roiCenter(1)).^2 + (Y - roiCenter(2)).^2);
+    spatialMask = distanceFromCenter <= roiRadius;
+    detectedTumorMask = detectedTumorMask & spatialMask;
+
+    % Filter based on size constraints derived from training data
+    detectedTumorMask = bwareafilt(detectedTumorMask, [minArea, maxArea]);
+
+    % Post-processing (e.g., adaptive dilation based on training size statistics)
+    tumorStats = regionprops(detectedTumorMask, 'BoundingBox');
+    if ~isempty(tumorStats)
+        boundingBox = tumorStats.BoundingBox;
+        boundingBoxDiameter = sqrt(boundingBox(3)^2 + boundingBox(4)^2);
+        dilationRadius = round(boundingBoxDiameter * 0.1);  % Adjust based on training data
+        detectedTumorMask = imdilate(detectedTumorMask, strel('disk', dilationRadius));
     end
 end
-
-% Select the tumor cluster with highest overlap * compactness score
-[~, tumorCluster] = max(overlapPercentage .* compactnessScore);
-
-% Display the detected tumor region
-detectedTumorRegion = (ecBATFcmLabel == tumorCluster);
-
-figure;
-subplot(1, 2, 1);
-imshow(volumeData(:, :, maxSliceIndex), []);
-title(['Original Slice ', num2str(maxSliceIndex)]);
-
-subplot(1, 2, 2);
-imshow(volumeData(:, :, maxSliceIndex), []);
-hold on;
-
-% Create a red overlay for the detected tumor region
-redOverlayDetected = cat(3, ones(size(detectedTumorRegion)),...
-    zeros(size(detectedTumorRegion)), zeros(size(detectedTumorRegion)));
-h = imshow(redOverlayDetected);
-set(h, 'AlphaData', detectedTumorRegion * 0.5);  % Make the detected tumor area semi-transparent
-
-title(['Detected Tumor Region on Slice ', num2str(maxSliceIndex)]);
-hold off;
-%%
-% Visualization of the BAT + FCM segmented results
-figure;
-subplot(1, 2, 1);
-imshow(tumorOverlay, []);
-xlabel("Original Tumor Mask");
-
-subplot(1, 2, 2);
-BATFCMImg = ecBATFcmLabel / nClusters;
-imshow(BATFCMImg, []);
-xlabel("BAT+FCM Segmented Tumor Region");
-
-%% Tumor Segmentation Evaluation
-refTumor = find(tumorOverlay == 1);  % Reference tumor pixel indices
-tumorCluster = 3;  % Set the cluster ID you believe represents the tumor
-
-[ecHasTumor, ecNumFalsePos, ecTumor] = segmentTumor(ecBATFcmLabel, refTumor, tumorCluster);
-
-% Display evaluation results
-fprintf('Tumor Detection Status: %d\n', ecHasTumor);
-fprintf('Number of False Positives: %d\n', ecNumFalsePos);
-
-%% Supporting Function: segmentTumor
-function [hasTumor, numFalsePos, tumorLabel] = segmentTumor(testLabel, refPositiveIds, clusterId)
-    % Calculate detection results using the test and reference data.
-
-    tumorIds = testLabel == clusterId;
-    segmentedImage = testLabel;
-    segmentedImage(tumorIds) = 1;
-    segmentedImage(~tumorIds) = 0;
-    
-    tumorIdsECIds = find(tumorIds == 1);
-    hasTumor = ~isempty(intersect(tumorIdsECIds, refPositiveIds));  % Check if any overlap
-    numFalsePos = length(setdiff(tumorIdsECIds, refPositiveIds));  % Calculate false positives
-    tumorLabel = segmentedImage;
-end
-
-%%
-function filteredI = denoiseImage(I)
-
-filteredI = zeros(size(I));  % Initialize an array to store the filtered image
-[~, ~, dim3] = size(I); 
- for i = 1:dim3
-    fprintf('Slice:%d\n', i)
-    slice = double(I(:, :, i));
-    %slice = imdiffusefilt(slice);  % Apply  filter
-    slice =  medfilt2(slice, [3 3]);
-    % Normalize between 0 and 1
-    slice = (slice - min(slice(:))) / (max(slice(:)) - min(slice(:)));
-    filteredI(:, :, i) = slice;  % Store the filtered slice back
- end
-end
-
-function y = createMovingWindowFeatures(in,dim)
-% Create feature vectors using a moving window.
-
-rStep = floor(dim(1)/2);
-cStep = floor(dim(2)/2);
-
-x1 = [zeros(size(in,1),rStep) in zeros(size(in,1),rStep)];
-x = [zeros(cStep,size(x1,2));x1;zeros(cStep,size(x1,2))];
-
-[row,col] = size(x);
-yCol = prod(dim);
-y = zeros((row-2*rStep)*(col-2*cStep), yCol);
-ct = 0;
-for rId = rStep+1:row-rStep
-    for cId = cStep+1:col-cStep
-        ct = ct + 1;
-        y(ct,:) = reshape(x(rId-rStep:rId+rStep,cId-cStep:cId+cStep),1,[]);
-    end
-end
-end
-
-
-%% Calculate feature distance from cluster center.
-
-function dist = findDistance(centers,data)
-
-dist = zeros(size(centers, 1), size(data, 1));
-for k = 1:size(centers, 1)
-    dist(k, :) = sqrt(sum(((data-ones(size(data, 1), 1)*centers(k, :)).^2), 2));
-end
-end
-
 %%
 function varargout = customFCM(data, options)
     % Fuzzy c-means clustering with optional automatic cluster determination.

@@ -3,14 +3,16 @@ clearvars
 clc
 
 % Specify the path to your NIfTI file (3D volume)
-niftiFilePath = '../data/vs_gk_5_t1_3D_aligned_volume.nii';
+niftiFilePath = '../data/vs_gk_36_t1_3D_aligned_volume.nii';
+%niftiFilePath = '../data/vs_gk_5_t1_3D_aligned_volume.nii';
 
 % Load the NIfTI image data (3D volume)
 volumeData = niftiread(niftiFilePath);
 volumeData = double(volumeData);
 
 % Specify the path to the NIfTI file for the binary mask
-maskFilePath = '../data/vs_gk_5_t1_aligned_vol_mask.nii';
+maskFilePath = '../data/vs_gk_36_t1_aligned_vol_mask.nii';
+%maskFilePath = '../data/vs_gk_5_t1_aligned_vol_mask.nii';
 
 % Load binary mask
 binaryMask = niftiread(maskFilePath);
@@ -50,13 +52,10 @@ end
     % Load and Preprocess Slice
 sliceData = volumeData(:, :, maxSliceIndex);
 preprocessedSliceData = imadjust(mat2gray(sliceData));
-% roi = imdilate(binaryMask(:, :, maxSliceIndex), strel('disk', 10));  % Dilate to include nearby regions
-% preprocessedSliceData(~roi) = 0;  % Mask out regions outside the ROI
-% 
 
 % Apply FCM Clustering
 nClusters = 5;
-options = fcmOptions(NumClusters=nClusters, MaxNumIteration=50);
+options = fcmOptions(NumClusters=nClusters, MaxNumIteration=100);
 [clusterCenters, membership] = fcm(double(preprocessedSliceData(:)), options);
 
 % Ensure that tumorOverlay is a logical mask
@@ -76,9 +75,6 @@ tumorIntensityMedian = median(preprocessedSliceData(tumorComponent));
 
 % Find cluster center closest to tumor intensity median
 [~, tumorCluster] = min(abs(clusterCenters - tumorIntensityMedian));
-    
-% Determine tumor cluster (assume highest intensity for tumor)
-%[~, tumorCluster] = max(clusterCenters);
 
 % Reshape the membership values to match slice dimensions
 [~, maxMembership] = max(membership, [], 1);
@@ -94,6 +90,25 @@ detectedTumorMask = detectedTumorMask & dilatedTumorComponent;
 % Post-process to retain only the largest connected component
 detectedTumorMask = bwareafilt(detectedTumorMask, 1);
 
+% Calculate the bounding box of the detected tumor mask
+tumorStats = regionprops(detectedTumorMask, 'BoundingBox');
+
+% If tumorStats is empty, handle the case where no tumor is detected
+if ~isempty(tumorStats)
+    % Use the diagonal of the bounding box to determine dilation radius
+    boundingBox = tumorStats.BoundingBox;
+    boundingBoxDiameter = sqrt(boundingBox(3)^2 + boundingBox(4)^2);
+    dilationRadius = round(boundingBoxDiameter * 0.1);  % Adjust 0.1 as a scaling factor
+    
+    % Apply dilation with the calculated radius
+    expandedTumorMask = imdilate(detectedTumorMask, strel('disk', dilationRadius));
+else
+    warning('No tumor detected in the mask.');
+    expandedTumorMask = detectedTumorMask;  % No expansion if no tumor detected
+end
+
+
+
 %%
 % Display original and detected masks
 figure;
@@ -104,12 +119,125 @@ title('Original Tumor Mask');
 subplot(1, 2, 2);
 imshow(preprocessedSliceData, []);
 hold on;
-redOverlay = cat(3, ones(size(detectedTumorMask)),...
-    zeros(size(detectedTumorMask)), zeros(size(detectedTumorMask)));
+redOverlay = cat(3, ones(size(expandedTumorMask)),...
+    zeros(size(expandedTumorMask)), zeros(size(detectedTumorMask)));
 h = imshow(redOverlay);
-set(h, 'AlphaData', detectedTumorMask * 0.5);
+set(h, 'AlphaData', expandedTumorMask * 0.5);
 title('Detected Tumor Region After FCM');
 hold off;
+%%
+% Apply Fuzzy C-Means clustering on the selected slice
+% Load and Preprocess Slice
+sliceData = volumeData(:, :, maxSliceIndex);
+preprocessedSliceData = imadjust(mat2gray(sliceData));
+data = double(preprocessedSliceData(:));
+
+% Apply FCM Clustering
+rng("default")
+nClusters = 5;  % Adjust this parameter based on the data
+options = struct();
+options.NumClusters = nClusters;
+options.ClusterCenters = [];
+options.Exponent = 2;
+options.MaxNumIteration = 10;
+options.DistanceMetric = 'euclidean';
+options.MinImprovement = 1e-5;
+options.Verbose = 1;
+options.ClusterVolume = 1;
+options.lambda = 0.1;
+options.alpha = 1;
+options.beta = 0.5;
+options.zeta = 1.5;
+
+% BAT Options.
+options.nBats = 50;
+options.BATIterMax = 10;
+options.lowerBound = min(data);
+options.upperBound = max(data);
+options.Qmin = 0;
+options.Qmax = 2;
+options.loudness = 0.5;
+options.loudnessCoefficient = .9;
+options.pulseRate = 0.5;
+options.gamma = 0.95;
+options.chaotic = false;
+options.MinNumIteration = 50;
+options.UsePerturbation = false;
+options.PerturbationFactor = 0.01;
+
+% Apply BAT + Fuzzy C-Means (FCM) clustering
+segImgInresults = MFBAFCM(data, options);
+
+% nClusters = 5;
+% options = fcmOptions(NumClusters=nClusters, MaxNumIteration=100);
+% [clusterCenters, membership] = fcm(double(preprocessedSliceData(:)), options);
+
+% Ensure that tumorOverlay is a logical mask
+tumorOverlay = logical(binaryMask(:, :, maxSliceIndex));
+
+% Label connected components in tumorOverlay
+labeledComponents = bwlabel(tumorOverlay);
+
+% Find the most common label in the tumor region to get the largest component
+tumorLabel = mode(labeledComponents(tumorOverlay & labeledComponents > 0));
+
+% Define tumorComponent as the largest connected component
+tumorComponent = (labeledComponents == tumorLabel);
+
+% Calculate median intensity of the tumor component in preprocessedSliceData
+tumorIntensityMedian = median(preprocessedSliceData(tumorComponent));
+
+% Find cluster center closest to tumor intensity median
+[~, tumorCluster] = min(abs(segImgInresults.centers - tumorIntensityMedian));
+
+% Reshape the membership values to match slice dimensions
+[~, maxMembership] = max(segImgInresults.U, [], 1);
+segmentedSlice = reshape(maxMembership, size(preprocessedSliceData));
+
+% Generate binary mask for detected tumor region
+detectedTumorMask = (segmentedSlice == tumorCluster);
+
+% Limit detection to regions near the tumor component
+dilatedTumorComponent = imdilate(tumorComponent, strel('disk', 10));  % Expand area slightly for spatial proximity
+detectedTumorMask = detectedTumorMask & dilatedTumorComponent;
+
+% Post-process to retain only the largest connected component
+detectedTumorMask = bwareafilt(detectedTumorMask, 1);
+
+% Calculate the bounding box of the detected tumor mask
+tumorStats = regionprops(detectedTumorMask, 'BoundingBox');
+
+% If tumorStats is empty, handle the case where no tumor is detected
+if ~isempty(tumorStats)
+    % Use the diagonal of the bounding box to determine dilation radius
+    boundingBox = tumorStats.BoundingBox;
+    boundingBoxDiameter = sqrt(boundingBox(3)^2 + boundingBox(4)^2);
+    dilationRadius = round(boundingBoxDiameter * 0.1);  % Adjust 0.1 as a scaling factor
+    
+    % Apply dilation with the calculated radius
+    expandedTumorMask = imdilate(detectedTumorMask, strel('disk', dilationRadius));
+else
+    warning('No tumor detected in the mask.');
+    expandedTumorMask = detectedTumorMask;  % No expansion if no tumor detected
+end
+
+%%
+% Display original and detected masks
+figure;
+subplot(1, 2, 1);
+imshow(tumorOverlay, []);
+title('Original Tumor Mask');
+
+subplot(1, 2, 2);
+imshow(preprocessedSliceData, []);
+hold on;
+redOverlay = cat(3, ones(size(expandedTumorMask)),...
+    zeros(size(expandedTumorMask)), zeros(size(detectedTumorMask)));
+h = imshow(redOverlay);
+set(h, 'AlphaData', expandedTumorMask * 0.5);
+title('Detected Tumor Region After BAT+FCM');
+hold off;
+
 
 %%
 % Use the selected slice data for clustering
