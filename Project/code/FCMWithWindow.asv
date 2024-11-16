@@ -89,8 +89,8 @@ ecBATFcmLabel = reshape(ecBATFcmLabel,n,r*c)';
 ecBATFcmLabel = reshape(ecBATFcmLabel,[r c n]);
 %% Show the same slice segmented using FCM alone and BAT+FCM
 figure;
-t = tiledlayout(1, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
-title(t, 'Denoised Slice, Segmented Slice (FCM in the middle, BAT+FCM on the right)', 'FontSize', 24, 'FontWeight', 'bold');
+t = tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+title(t, 'Initial Slice and Denoised Slice', 'FontSize', 24, 'FontWeight', 'bold');
 slice_number = 15;
 sliceData = filteredD(:,:,slice_number);
 nexttile;
@@ -99,11 +99,11 @@ xlabel("Original Denoised Slice", 'FontSize', 24, 'FontWeight', 'bold');
 nexttile;
 FCMImg= ecFcmLabel(:,:,slice_number)/nClusters;
 imshow(FCMImg)
-xlabel("FCM Segmented Slice",'FontSize', 24, 'FontWeight', 'bold');
+xlabel("FCM Segmented Slice", 'FontSize', 24, 'FontWeight', 'bold');
 nexttile;
 BATFCMImg = ecBATFcmLabel(:,:,slice_number)/nClusters;
 imshow(BATFCMImg)
-xlabel("BAT+FCM Segmented Slice",'FontSize', 24, 'FontWeight', 'bold');
+xlabel("BAT+FCM Segmented Slice")
 %%
 fcmUT = fcmU';
 PC = calculatePartitionCoefficient(fcmUT);
