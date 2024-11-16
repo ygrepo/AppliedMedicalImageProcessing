@@ -38,7 +38,6 @@ options.DistanceMetric = 'euclidean';
 options.MinImprovement = 1e-5;
 options.Verbose = 1;
 options.ClusterVolume = 1;
-options.lambda = 0.1;
 options.alpha = 1;
 options.beta = 0.5;
 options.zeta = 1.5;
@@ -60,7 +59,6 @@ options.DistanceMetric = 'euclidean';
 options.MinImprovement = 1e-5;
 options.Verbose = 1;
 options.ClusterVolume = 1;
-options.lambda = 0.1;
 options.alpha = 1;
 options.beta = 0.5;
 options.zeta = 1.5;
@@ -70,8 +68,8 @@ options.nBats = 50;
 options.BATIterMax = 10;
 options.lowerBound = min(filteredDTrainFeatures);
 options.upperBound = max(filteredDTrainFeatures);
-options.Qmin = 0;
-options.Qmax = 2;
+options.fmin= 0; % Min. frequency
+options.fmax = 2; % Max.frequency
 options.loudness = 0.5; % Initial loudness
 options.loudnessCoefficient = .9;
 options.pulseRate = 0.5; % Initial pulse rate
@@ -108,16 +106,18 @@ xlabel("BAT+FCM Segmented Image")
 fcmUT = fcmU';
 PC = calculatePartitionCoefficient(fcmUT);
 CE = calculateClassificationEntropy(fcmUT);
-SC = calculatePartitionIndex(fcmUT, filteredDTrainFeatures, ...
-    fcmCenters, options.Exponent);
+distances = max(pdist2(filteredDTrainFeatures, fcmCenters, 'squaredeuclidean'), 1e-10);
+SC = calculatePartitionIndex(fcmUT, distances, ...
+     fcmCenters, options.Exponent);
 S = fuzzySeparationIndex(filteredDTrainFeatures, fcmCenters,...
     fcmU, options.Exponent);
 fprintf("FCM: PC:%5.3f-CE:%5.3f-SC:%5.3f-S:%5.3f\n", PC,CE,SC, S);
 batFCMUT = segImgInresults.U';
 PC = calculatePartitionCoefficient(batFCMUT);
 CE = calculateClassificationEntropy(batFCMUT);
-SC = calculatePartitionIndex(batFCMUT, filteredDTrainFeatures, ...
-    segImgInresults.centers, options.Exponent);
+distances = max(pdist2(filteredDTrainFeatures, segImgInresults.centers, 'squaredeuclidean'), 1e-10);
+SC = calculatePartitionIndex(batFCMUT, distances, ...
+     segImgInresults.centers, options.Exponent);
 S = fuzzySeparationIndex(filteredDTrainFeatures, segImgInresults.centers,...
     segImgInresults.U, options.Exponent);
 fprintf("BAT+FCM PC:%5.3f-CE:%5.3f-SC:%5.3f-S:%5.3f\n", PC,CE,SC, S);
@@ -475,7 +475,6 @@ function [center, newFuzzyPartMat, objFcn, covMat, brkCond,...
     % Extract parameters from options
     numCluster = options.NumClusters;
     expo = options.Exponent;
-    lambda = options.lambda;
     clusterVolume = options.ClusterVolume;
     brkCond = struct('isTrue', false, 'description', '');
 
@@ -529,106 +528,66 @@ end
 
 %%
 function fitness = calculateFitness(clusterCenters, data, options)
-    % dataPoints: N×D (number of data points × number of features).
-    % clusterCenters: C×D (number of clusters × number of features).
+    % Optimized fitness calculation based on intra-cluster distance, SC, PC, and CE
 
-    % Extract the data points and number of clusters from options
-    m = options.Exponent; % Fuzziness exponent
+    m = options.Exponent;  % Fuzziness exponent
+    alpha = options.alpha;
+    beta = options.beta;
+    zeta = options.zeta;
 
-    % Calculate intra-cluster distance
-    intra_cluster = calculateIntraCluster(data, clusterCenters); % No transpose needed
+    % Compute squared distances between data points and cluster centers
+    distances = max(pdist2(data, clusterCenters, 'squaredeuclidean'), 1e-10);
 
-    % Compute distances between data points and cluster centers (N x C)
-    distances = pdist2(data, clusterCenters).^2; % Squared distances
+    % Calculate membership matrix U
+    U = calculateMembership(distances, m);
 
-    % Avoid division by zero by setting very small values to a small epsilon
-    epsilon = 1e-10;
-    distances(distances < epsilon) = epsilon;
-
-    % Update membership matrix U using vectorized operations
-    exponent = 2 / (m - 1);
-    invDistances = 1 ./ distances; % Element-wise inversion of distances
-    sumInvDistances = sum(invDistances .^ exponent, 2); % Sum across clusters for each data point
-
-    U = (invDistances .^ exponent) ./ sumInvDistances; % Calculate membership values
-
-    % Calculate partition index (SC)
-    SC = calculatePartitionIndex(U, data, clusterCenters, m);
-
-    % Calculate partition coefficient (PC)
+    % Compute fitness components
+    intraCluster = calculateIntraCluster(data, clusterCenters, U, m);
+    SC = calculatePartitionIndex(U, distances, clusterCenters, m);
     PC = calculatePartitionCoefficient(U);
-
-    % Compute the fitness value
-    %fitness = (intra_cluster + SC) / PC;
-
     CE = calculateClassificationEntropy(U);
 
-    fitness = options.alpha * intra_cluster + ...
-        options.beta * SC + options.zeta * (1/PC + CE);
-  
+    % Final fitness value
+    fitness = alpha * intraCluster + beta * SC + zeta * (1 / PC + CE);
 end
 
-%%
-function intraCluster = calculateIntraCluster(dataPoints, clusterCenters)
-    % dataPoints: N x D matrix (N data points, D features)
-    % clusterCenters: c x D matrix (c cluster centers, D features)
-    
-    % Compute the pairwise squared Euclidean distances between data points and cluster centers
+function U = calculateMembership(distances, m)
+    % Calculate membership matrix U with fuzziness exponent m
+    exponent = 2 / (m - 1);
+    invDistances = 1 ./ distances;
+    U = (invDistances .^ exponent) ./ sum(invDistances .^ exponent, 2);
+end
+
+function intraCluster = calculateIntraCluster(dataPoints, clusterCenters, U, m)
+    % Vectorized calculation of weighted intra-cluster distance
+    % U: N x c membership matrix, raised to the power m
     distances = pdist2(dataPoints, clusterCenters, 'squaredeuclidean');
-    
-    % Sum all distances and average by the number of data points
-    intraCluster = sum(distances, 'all') / size(dataPoints, 1);
+    intraCluster = sum(sum((U .^ m) .* distances)) / size(dataPoints, 1);
 end
 
-function SC = calculatePartitionIndex(U, dataPoints, clusterCenters, m)
-    % U: N x c matrix of membership values for each data point in each cluster
-    % dataPoints: N x D matrix of data points
-    % clusterCenters: c x D matrix of cluster centers
-    % m: Fuzziness exponent (usually > 1)
+function SC = calculatePartitionIndex(U, distances, clusterCenters, m)
+    % Calculate the Partition Index (SC) based on intra- and inter-cluster distances
+    % intra-cluster part
+    intraClusterDist = sum((U .^ m) .* distances, 1);  % 1 x c vector
 
+    % inter-cluster part
+    clusterDistances = max(pdist2(clusterCenters, clusterCenters, 'squaredeuclidean'), 1e-10);
+    N = size(U, 1);  % Number of data points
+    denominator = N * sum(clusterDistances, 2)';  % 1 x c vector
 
-    % Intra-cluster distances (between data points and cluster centers)
-    distances = pdist2(dataPoints, clusterCenters, 'squaredeuclidean'); % N x c matrix
-
-    % Weight the distances using the membership values raised to the power m
-    numerator = sum((U.^m) .* distances, 1); % 1 x c vector
-
-    % Inter-cluster distances (between cluster centers)
-    clusterDistances = pdist2(clusterCenters, clusterCenters, 'squaredeuclidean'); % c x c matrix
-
-    % Add a small epsilon to avoid division by zero
-    epsilon = 1e-10;
-
-    % Sum of inter-cluster distances for each cluster center (sum of each row)
-    % Number of data points
-    N = size(dataPoints,1);
-    denominator = N * sum(clusterDistances, 2)' + epsilon; % 1 x c vector
-
-    % Compute the partition index (SC) for each cluster and sum them
-    SC = sum(numerator ./ denominator);
+    SC = sum(intraClusterDist ./ denominator);  % Sum for all clusters
 end
-
 
 function PC = calculatePartitionCoefficient(U)
-    % U: N x c matrix of membership values for each data point in each cluster
-    
-    % Get the number of data points (N)
+    % Calculate Partition Coefficient (PC)
     N = size(U, 1);
-    
-    % Calculate the partition coefficient
-    PC = sum(U.^2, 'all') / N;
+    PC = sum(U .^ 2, 'all') / N;
 end
 
 function CE = calculateClassificationEntropy(U)
-    % U: c x N matrix of membership values for each data point in each cluster
-    
-    % Get the number of data points (N)
+    % Calculate Classification Entropy (CE)
+    epsilon = 1e-10;  % Small value to avoid log(0)
     N = size(U, 1);
-    
-    % Avoid log(0) by adding a very small value (epsilon) to U
-    epsilon = 1e-10;
-    
-    % Compute the classification entropy
     CE = -sum(U .* log(U + epsilon), 'all') / N;
 end
 
@@ -661,9 +620,10 @@ end
 %%
 function [bestClusterCenters, bestFitness] = batAlgorithm(data, options)
     % Initialize parameters
-    pulseRates = options.pulseRate * ones(options.nBats, 1);  % Per-bat pulse rates
+    pulseRates = options.pulseRate * ones(options.nBats, 1);  % Per-bat pulse rate
     loudnesses = options.loudness * ones(options.nBats, 1);   % Per-bat loudness
-
+    repetitions = zeros(options.nBats, 1);  % Counter for stagnation (rep_i)
+    bestSolutions = [];  % To store the best solutions
 
     numFeatures = size(data, 2);
     % Initialize bat positions with bounds expanded to (nBats x (numClusters * numFeatures))
@@ -691,8 +651,8 @@ function [bestClusterCenters, bestFitness] = batAlgorithm(data, options)
         fprintf("BAT Iter:%d\n", t);
         for i = 1:options.nBats
             % Update frequency, velocity, and position
-            Q = options.Qmin + (options.Qmax - options.Qmin) * rand;
-            velocities(i, :) = velocities(i, :) + (bats(i, :) - bestClusterCenters) * Q;
+            f = options.fmin+ (options.fmax - options.fmin) * rand;
+            velocities(i, :) = velocities(i, :) + (bats(i, :) - bestClusterCenters) * f;
             newClusterCenters = bats(i, :) + velocities(i, :);
 
             % Enforce boundary constraints for each cluster center
@@ -702,8 +662,15 @@ function [bestClusterCenters, bestFitness] = batAlgorithm(data, options)
 
             % Local search (small random walk around the best solution)
             if rand > pulseRates(i)
-                newClusterCenters = bestClusterCenters + ...
-                    0.01 * randn(1, options.NumClusters * numFeatures);
+                % Calculate the average loudness of all bats
+                averageLoudness = mean(loudnesses);
+                
+                % Generate epsilon as a random number in the range [-1, 1]
+                epsilon = -1 + 2 * rand;
+                
+                % Update newClusterCenters based on the average loudness and epsilon
+                newClusterCenters = bestClusterCenters + epsilon * averageLoudness;
+
             end
 
             % Evaluate the new solution's fitness with the dataset
@@ -712,7 +679,7 @@ function [bestClusterCenters, bestFitness] = batAlgorithm(data, options)
 
             % Acceptance criteria based on fitness, loudness, and pulse rate
             if (newFitness < fitness(i)) && (rand < loudnesses(i))
-                fprintf("Update bats, fitness, loudness, pulse rates\n")
+                fprintf("Update bat %d: fitness, loudness, pulse rate\n", i)
                 bats(i, :) = newClusterCenters;
                 fitness(i) = newFitness;
                 loudnesses(i) = options.loudnessCoefficient * loudnesses(i);  % Decrease loudness
@@ -721,10 +688,32 @@ function [bestClusterCenters, bestFitness] = batAlgorithm(data, options)
 
             % Update global best if a better solution is found
             if newFitness < bestFitness
-                fprintf("Update best centers\n")
+                fprintf("Update with best centers and new fitness:%5.3f\n", newFitness)
                 bestClusterCenters = newClusterCenters;
                 bestFitness = newFitness;
+                bestSolutions = [bestSolutions; bestClusterCenters];  % Add new best solution
+                if size(bestSolutions, 1) > 5
+                    bestSolutions(1, :) = [];  % Keep only the last 5 best solutions
+                end
             end
+
+            % Stagnation check (if bat does not move)
+            if norm(newClusterCenters - bats(i, :)) == 0
+                repetitions(i) = repetitions(i) + 1;
+            else
+                repetitions(i) = 0;
+            end
+
+            % Replace Xi if rep_i reaches 4
+            if repetitions(i) == 4
+                fprintf("Replacing bat %d with average of the best 5 solutions\n", i);
+                if size(bestSolutions, 1) >= 5
+                    bats(i, :) = mean(bestSolutions(end-4:end, :), 1);  % Average of last 5 best solutions
+                else
+                    bats(i, :) = mean(bestSolutions, 1);  % Average of all stored solutions (if < 5)
+                end
+                repetitions(i) = 0;  % Reset stagnation counter
+            end            
         end
     end
 

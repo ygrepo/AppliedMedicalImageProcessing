@@ -767,7 +767,7 @@ function [bestClusterCenters, bestFitness] = batAlgorithm(data, options)
 
             % Update global best if a better solution is found
             if newFitness < bestFitness
-                fprintf("Update best centers\n")
+                fprintf("Update best centers and new fitness:%5.3f\n", newFitness)
                 bestClusterCenters = newClusterCenters;
                 bestFitness = newFitness;
             end
