@@ -235,7 +235,7 @@ for i = 1:numel(testImagePaths)
     % Store the detected mask
     detectedMasks{i} = detectedMask;
 end
-
+%%
 % Evaluate performance metrics for the specific slices
 result = evaluateTestSetSlice(testImagePaths, testMaskPaths, detectedMasks, sliceIndices);
 
@@ -269,7 +269,6 @@ nClusters = 5;  % Number of clusters for FCM
 % tumorIntensityRange = [minIntensity, maxIntensity]; % Calculated from training
 % roiCenter = [xCenter, yCenter]; % Calculated from training
 % roiRadius = radius; % Calculated from training
-% meanRadius, stdRadius = meand and standard radius; % Calculated from training
 % minArea = minimum tumor area observed in training set
 % maxArea = maximum tumor area observed in training set
 
@@ -281,6 +280,7 @@ for i = 1:numel(testImagePaths)
     patientInfo = split(fileName, '_');  % Split file name by underscores
     patientID = join(patientInfo(1:3), ':');  % Join the first three parts (e.g., vs:gk:25)
     patientID = patientID{1};  % Convert to string
+
 
     % Load the test image and its ground truth mask
     imageData = niftiread(testImagePaths{i});
@@ -298,14 +298,11 @@ for i = 1:numel(testImagePaths)
     matchedSlice = imhistmatch(testSlice, referenceSlice);  % Histogram match to reference
 
     % Replace the slice in the image data with the histogram-matched version
-    % imageData(:, :, maxSliceIndex) = matchedSlice;
-    for j = 1:size(imageData, 3)
-     imageData(:, :, j) = imhistmatch(imageData(:, :, j), referenceSlice);
-    end
+    imageData(:, :, maxSliceIndex) = matchedSlice;
     
     % Call the detection function with the histogram-matched test image and learned parameters
     fprintf("Image:%s\n", testImagePaths{i})
-    detectedMask = fcm_predict_tumor(testImagePaths{i}, imageData, ...
+    detectedMask = fcm_predict_tumor(testImagePaths{i},...
         nClusters, tumorIntensityRange, minArea, maxArea,...
         roiCenter, roiRadius, meanRadius, stdRadius, ...
         maxSliceIndex, true);
@@ -377,7 +374,6 @@ nClusters = 5;  % Number of clusters for FCM
 % tumorIntensityRange = [minIntensity, maxIntensity]; % Calculated from training
 % roiCenter = [xCenter, yCenter]; % Calculated from training
 % roiRadius = radius; % Calculated from training
-% meanRadius, stdRadius = meand and standard radius; % Calculated from training
 % minArea = minimum tumor area observed in training set
 % maxArea = maximum tumor area observed in training set
 
@@ -400,28 +396,21 @@ for i = 1:numel(testImagePaths)
     matchedSlice = imhistmatch(testSlice, referenceSlice);  % Histogram match to reference
     
    % Replace the slice in the image data with the histogram-matched version
-    %imageData(:, :, maxSliceIndex) = matchedSlice;
-    for j = 1:size(imageData, 3)
-     imageData(:, :, j) = imhistmatch(imageData(:, :, j), referenceSlice);
-    end
+    imageData(:, :, maxSliceIndex) = matchedSlice;
     
     % Call the detection function with test image and learned parameters
     fprintf("Image:%s\n", testImagePaths{i})
     detectedMask = fcm_predict_tumor(testImagePaths{i},imageData,...
         nClusters, tumorIntensityRange, minArea, maxArea,...
         roiCenter, roiRadius, meanRadius, stdRadius, ...
-        maxSliceIndex, true);
+        maxSliceIndex, false);
     
     % Store the detected mask
     detectedMasks{i} = detectedMask;
 
 end
 
-% Evaluate performance metrics for the specific slices
-result = evaluateTestSetSlice(testImagePaths, testMaskPaths, detectedMasks, sliceIndices);
 
-% Display results
-disp(result);
 
 %%
 function detectedTumorMask = fcm_predict_tumor(imagePath, imageData, ...
@@ -511,18 +500,18 @@ function detectedTumorMask = fcm_predict_tumor(imagePath, imageData, ...
     detectedTumorMask = bwareafilt(detectedTumorMask, [minArea, maxArea]);
 
     % Post-processing (e.g., adaptive dilation based on training size statistics)
-    tumorStats = regionprops(detectedTumorMask, 'BoundingBox');
     % Use a scaled radius for dilation
     scaledRadius = meanRadius + 0.5 * stdRadius;  % Adjust factor based on desired sensitivity
-    % if ~isempty(tumorStats)
-    %     boundingBox = tumorStats.BoundingBox;
-    %     boundingBoxDiagonal = sqrt(boundingBox(3)^2 + boundingBox(4)^2);
-    %     dilationRadius = min(round(boundingBoxDiagonal * 0.1), scaledRadius);  % Adjust scaling factor
-    %     detectedTumorMask = imdilate(detectedTumorMask, strel('disk', dilationRadius));
-    % end
-
     dilationRadius = max(round(scaledRadius), 1);  % Ensure minimum dilation radius
     detectedTumorMask = imdilate(detectedTumorMask, strel('disk', dilationRadius));
+ 
+    % tumorStats = regionprops(detectedTumorMask, 'BoundingBox');
+    % if ~isempty(tumorStats)
+    %     boundingBox = tumorStats.BoundingBox;
+    %     boundingBoxDiameter = sqrt(boundingBox(3)^2 + boundingBox(4)^2);
+    %     dilationRadius = round(boundingBoxDiameter * 0.1);  % Adjust based on training data
+    %     detectedTumorMask = imdilate(detectedTumorMask, strel('disk', dilationRadius));
+    % end
 end
 %%
 function result = evaluateTestSetSlice(testImagePaths, testMaskPaths, detectedMasks, sliceIndices)
@@ -555,17 +544,6 @@ function result = evaluateTestSetSlice(testImagePaths, testMaskPaths, detectedMa
             fprintf("Resizing detected mask for slice %d from %s to %s\n", sliceIndices(i), ...
                 mat2str(size(detectedMask)), mat2str(size(maskSlice)));
             detectedMask = imresize(detectedMask, size(maskSlice), 'nearest');
-        end
-
-        % Handle cases where no tumor is detected
-        if all(detectedMask(:) == 0) && all(maskSlice(:) == 0)
-            % No tumor detected, and ground truth is also empty
-            continue;  % Skip this slice
-        elseif all(detectedMask(:) == 0)
-            % No tumor detected but ground truth has a tumor
-            sensitivities(i) = 0;
-            PPVs(i) = 0;
-            % Continue calculating other metrics based on TP, FP, TN, FN
         end
 
         % Compute confusion matrix elements
@@ -1052,6 +1030,114 @@ function [bestClusterCenters, bestFitness] = batAlgorithm(data, options)
     end
 
     % Reshape bestClusterCenters into (numClusters x numFeatures) for output
+    bestClusterCenters = reshape(bestClusterCenters, [options.NumClusters, numFeatures]);
+end
+
+
+function [bestClusterCenters, bestFitness] = batAlgorithm2(data, options)
+    % Initialize parameters
+    pulseRates = options.pulseRate * ones(options.nBats, 1);  % Per-bat pulse rate
+    loudnesses = options.loudness * ones(options.nBats, 1);   % Per-bat loudness
+    repetitions = zeros(options.nBats, 1);  % Counter for stagnation (rep_i)
+    bestSolutions = [];  % To store the best solutions
+
+    numFeatures = size(data, 2);
+    % Initialize bat positions with bounds expanded to (nBats x (numClusters * numFeatures))
+    bats = repmat(options.lowerBound, options.nBats, options.NumClusters) + ...
+       (repmat(options.upperBound, options.nBats, options.NumClusters) - ...
+       repmat(options.lowerBound, options.nBats, options.NumClusters)) ...
+       .* rand(options.nBats, options.NumClusters * numFeatures);
+
+    velocities = zeros(options.nBats, options.NumClusters * numFeatures);
+    fitness = zeros(options.nBats, 1);
+
+    % Evaluate initial fitness for all bats using the dataset
+    for i = 1:options.nBats
+        % Reshape each bat into a (numClusters x calculateFitness) format for calculateFitness
+        reshapedBat = reshape(bats(i, :), [options.NumClusters, numFeatures]);
+        fitness(i) = calculateFitness(reshapedBat, data, options);  % Calculate fitness based on clustering
+    end
+
+    % Find the initial best solution
+    [bestFitness, idx] = min(fitness);
+    bestClusterCenters = bats(idx, :);  % Store best solution as flattened vector
+
+    % Main loop for the BAT algorithm
+    for t = 1:options.BATIterMax
+        fprintf("BAT Iter:%d\n", t);
+        repetitions = zeros(options.nBats, 1);  % Reset stagnation counters at each iteration
+        if (t == 6)
+            disp('6')
+        end
+        for i = 1:options.nBats
+            % Update frequency, velocity, and position
+            f = options.fmin+ (options.fmax - options.fmin) * rand;
+            velocities(i, :) = velocities(i, :) + (bats(i, :) - bestClusterCenters) * f;
+            newClusterCenters = bats(i, :) + velocities(i, :);
+
+            % Enforce boundary constraints for each cluster center
+            newClusterCenters = enforceBoundaries(newClusterCenters,...
+                options.lowerBound, options.upperBound,...
+                options.NumClusters, numFeatures);
+
+            % Local search (small random walk around the best solution)
+            if rand > pulseRates(i)
+                % Calculate the average loudness of all bats
+                averageLoudness = mean(loudnesses);
+                
+                % Generate epsilon as a random number in the range [-1, 1]
+                epsilon = -1 + 2 * rand;
+                
+                % Update newClusterCenters based on the average loudness and epsilon
+                newClusterCenters = bestClusterCenters + epsilon * averageLoudness;
+
+            end
+
+            % Evaluate the new solution's fitness with the dataset
+            reshapedNewClusterCenters = reshape(newClusterCenters, [options.NumClusters, numFeatures]);
+            newFitness = calculateFitness(reshapedNewClusterCenters, data, options);
+
+            % Acceptance criteria based on fitness, loudness, and pulse rate
+            if (newFitness < fitness(i)) && (rand < loudnesses(i))
+                fprintf("Update bat %d: fitness, loudness, pulse rate\n", i)
+                bats(i, :) = newClusterCenters;
+                fitness(i) = newFitness;
+                loudnesses(i) = options.loudnessCoefficient * loudnesses(i);  % Decrease loudness
+                pulseRates(i) = pulseRates(i) * (1 - exp(-options.gamma * t));  % Increase pulse rate
+            end
+
+            % Update global best if a better solution is found
+            if newFitness < bestFitness
+                fprintf("Update with best centers and new fitness:%5.3f\n", newFitness)
+                bestClusterCenters = newClusterCenters;
+                bestFitness = newFitness;
+                bestSolutions = [bestSolutions; bestClusterCenters];  % Add new best solution
+                if size(bestSolutions, 1) > 5
+                    bestSolutions(1, :) = [];  % Keep only the last 5 best solutions
+                end
+            end
+
+            % Stagnation check (if bat does not move)
+            if norm(newClusterCenters - bats(i, :)) == 0
+                repetitions(i) = repetitions(i) + 1;
+            else
+                repetitions(i) = 0;
+            end
+
+            % Replace Xi if rep_i reaches 4
+            if repetitions(i) == 4
+                fprintf("Replacing bat %d with average of the best 5 solutions\n", i);
+                if size(bestSolutions, 1) >= 5
+                    bats(i, :) = mean(bestSolutions(end-4:end, :), 1);  % Average of last 5 best solutions
+                else
+                    bats(i, :) = mean(bestSolutions, 1);  % Average of all stored solutions (if < 5)
+                end
+                repetitions(i) = 0;  % Reset stagnation counter
+            end            
+        end
+    end
+
+    % Reshape bestSol into (numClusters x 9) for output
     bestClusterCenters = reshape(bestClusterCenters, [options.NumClusters, numFeatures]);
 end
 
