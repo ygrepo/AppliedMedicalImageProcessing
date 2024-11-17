@@ -21,7 +21,7 @@ for i = 1:numel(imageFiles)
     maskIdx = find(contains({maskFiles.name}, identifier));
     
     % Check if exactly one mask file is found for the identifier
-    if numel(maskIdx) == 1
+    if isscalar(maskIdx)
         % Full path of the mask file
         maskPath = fullfile(dataDir, maskFiles(maskIdx).name);
         
