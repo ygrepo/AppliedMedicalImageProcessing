@@ -1,10 +1,10 @@
 
 clearvars
 clc
-vol = niftiread('data/sub-11_T1w.nii.gz');
+vol = niftiread('data/sub-11_T1w-1.nii.gz');
 vol = flip (permute(vol, [2 1 3]), 1);
 
-% bestParams = gridSearch(vol);
+%% bestParams = gridSearch(vol);
 
 % Look at Slice 102 and Slice 119 ---
 sliceNumber = 102;
