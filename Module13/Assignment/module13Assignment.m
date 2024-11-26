@@ -89,52 +89,14 @@ eta = computeAbsoluteGoodness(h, T); % Compute absolute goodness
 disp(['Absolute Goodness (η): ', num2str(eta)]);
 BW = imbinarize(covslice,T);
 showPreprocessingImages(slice, BW, T);
-%%
-K = 5; % Number of tissue classes
-beta = 0.5; % Smoothness weight
-maxIter = 10; % Maximum number of iterations
-order = 2; % Polynomial order for the gain field
-tol = 1e-3; % Convergence tolerance
-[slice,z] = unsupervisedClassification(vol,sliceNumber,...
-    K, beta, maxIter, order, tol);
-
-showProcessedImage(slice, z, K)
-%%
-% Parameters
-K = 5; % Number of tissue classes
-beta = 0.5; % Smoothness weight
-maxIter = 10; % Maximum number of iterations
-order = 2; % Polynomial order for the gain field
-tol = 1e-3; % Convergence tolerance
-
-% Perform unsupervised classification
-[slice, z, g] = unsupervisedClassification(vol, sliceNumber, [], ...
-    K, beta, maxIter, order, tol);
-
-% Visualize the results
-% Extract the slice and binary brain mask
-brainMask = BW; % Binary mask (1 for brain area, 0 for background)
-%%
-showResultsWithGain(slice, z, g, brainMask);
-
-%%
-% Parameters
-K = 5; % Number of tissue classes
-beta = 0.5; % Smoothness weight
-maxIter = 10; % Maximum number of iterations
-order = 2; % Polynomial order for the gain field
-tol = 1e-3; % Convergence tolerance
-
-% Preprocessing-based classification
-%preprocessAndClassify(vol, 143, K, beta, maxIter, order, tol);
-
-% Direct unsupervised classification
-classifyFullImage(vol, 143, K, beta, maxIter, order, tol);
-%%
-
-% Example using GMM
+%% Using GMM
 [slice, segmentation, g] = unsupervisedClassificationGMM(vol, sliceNumber, 5, 2);
-showResults2(slice, segmentation, g);
+% Otsu-based preprocessing to create brainMask
+T = otsuThreshold(imhist(mat2gray(slice)));
+brainMask = imbinarize(mat2gray(slice), T);
+
+% Call the function with the brain mask
+showResults(slice, segmentation, g, brainMask);
 
 %%
 % Extract the slice
@@ -161,6 +123,19 @@ BW = imbinarize(covslice, T);
 % Visualize the results
 showResultsWithGain(slice, segmentation, g, BW);
 
+
+
+%%
+% Parameters
+K = 5; % Number of tissue classes
+beta = 0.2; % Smoothness weight
+maxIter = 10; % Maximum number of iterations
+maxZIter = 10;
+order = 2; % Polynomial order for the gain field
+tol = 1e-3; % Convergence tolerance
+
+% Direct unsupervised classification
+classifyFullImage(vol, 143, K, beta, maxIter, maxZIter, order, tol);
 
 %%
 function [mu0, mu1, N] = makeMeanTables(h, K)
@@ -445,10 +420,8 @@ function z = estimateIndicatorFunctionWithGain_ICM_V(img, gamma, g, beta, K, max
 
         % Validate and Normalize z after update
         sumZ = sum(z, 2); % Sum across classes
-        if any(abs(sumZ - 1) > 1e-6)
-            % Normalize rows to ensure they sum to 1
-            z = z ./ sumZ;
-        end
+        % Normalize rows to ensure they sum to 1
+        z = z ./ max(sumZ, 1e-8);
 
         % Check for one-hot encoding consistency
         invalidRows = find(sum(z, 2) ~= 1, 1); % Find rows that do not sum to 1
@@ -530,9 +503,102 @@ function gamma = updateCentroids(z, g, y)
     gamma = max(gamma, 0); % Gamma should never be negative
 end
 
+function [slice, z, g] = unsupervisedClassificationDirectGain(vol, sliceNumber, slice, ...
+    K, beta, maxIter, maxZIter, order, tol)
+% Perform unsupervised tissue classification with direct gain field estimation.
+% Inputs:
+%   vol        - 3D volume of slices (only needed if sliceNumber >= 0)
+%   sliceNumber - Index of the slice to process (-1 if using the provided slice)
+%   slice      - 2D image slice (optional, used if sliceNumber == -1)
+%   K          - Number of tissue classes
+%   beta       - Smoothness weight
+%   maxIter    - Maximum number of iterations
+%   order      - Polynomial order for the gain field
+%   tol        - Convergence tolerance
+%
+% Outputs:
+%   slice - 2D input slice (for compatibility in visualization)
+%   z     - Indicator function (rows*cols x K matrix)
+%   g     - Gain field (2D array)
+
+    % Extract the slice if sliceNumber is provided
+    if sliceNumber >= 0
+        slice = double(vol(:, :, sliceNumber)); % Extract the slice
+    end
+
+    % Initialization
+    gamma = initializeCentroids(slice, K); % Initialize centroids
+    g = ones(size(slice)); % Initialize gain field as flat (all ones)
+
+    % Flatten the slice and gain field for processing
+    sliceVec = slice(:);
+    gVec = g(:);
+
+    % Precompute the polynomial basis P (Chebyshev polynomials)
+    [rows, cols] = size(slice);
+    [X, Y] = meshgrid(1:cols, 1:rows);
+    coords = [X(:), Y(:)]; % Flattened coordinates
+    P = computePolynomialBasis(coords, order); % Polynomial basis matrix
+
+    % Iterative algorithm with convergence criteria
+    prevZ = zeros(size(sliceVec, 1), K); % Initialize previous z
+    prevGamma = zeros(1, K); % Initialize previous gamma
+    prevGVec = zeros(size(gVec)); % Initialize previous g
+
+    for iter = 1:maxIter
+        fprintf('Iteration %d/%d\n', iter, maxIter);
+
+        % Step 1: Update the indicator function (z)
+        z = estimateIndicatorFunctionWithGain_ICM_V(slice, gamma, g, beta, K, maxZIter);
+
+        % Step 2: Update centroids (gamma)
+        gamma = updateCentroids(z, gVec, sliceVec);
+
+        % Step 3: Directly Estimate the Gain Field (g)
+        % Solve for the polynomial coefficients f using least squares
+        regParam = 1e-3; % Regularization parameter to avoid ill-conditioning
+        %f = (P' * P) \ (P' * sliceVec);
+        f = (P' * P + regParam * eye(size(P, 2))) \ (P' * sliceVec);
+
+        % Recompute the gain field g from the polynomial coefficients
+        gVec = P * f; % Compute the gain field
+
+        % Clip g to a reasonable range
+        gVec = max(gVec, 1e-6); % Ensure g is positive
+        g = reshape(gVec, rows, cols); % Reshape back to 2D
+
+        % Ensure gain field is valid
+        if any(isnan(gVec)) || any(isinf(gVec))
+            error('Gain field contains invalid values.');
+        end
+
+        % Compute changes for convergence
+        deltaZ = max(abs(z(:) - prevZ(:))); % Maximum change in z
+        deltaGamma = max(abs(gamma - prevGamma)); % Maximum change in gamma
+        deltaG = max(abs(gVec - prevGVec)); % Maximum change in g
+
+        % Display changes (optional)
+        fprintf('Max deltaZ: %.6f, Max deltaGamma: %.6f, Max deltaG: %.6f\n', deltaZ, deltaGamma, deltaG);
+
+        % Check for convergence
+        if deltaZ < tol && deltaGamma < tol && deltaG < tol
+            fprintf('Convergence reached after %d iterations.\n', iter);
+            break;
+        end
+
+        % Update previous values
+        prevZ = z;
+        prevGamma = gamma;
+        prevGVec = gVec;
+
+        % Display intermediate results (optional)
+        fprintf('Updated centroids (gamma): ');
+        disp(gamma);
+    end
+end
 
 function [slice, z, g] = unsupervisedClassification(vol, sliceNumber, slice, ...
-    K, beta, maxIter, order, tol)
+    K, beta, maxIter, maxZIter, order, tol)
 % Perform unsupervised tissue classification with gain field estimation
 % Inputs:
 %   vol        - 3D volume of slices (only needed if sliceNumber >= 0)
@@ -577,7 +643,7 @@ function [slice, z, g] = unsupervisedClassification(vol, sliceNumber, slice, ...
         fprintf('Iteration %d/%d\n', iter, maxIter);
 
         % Step 1: Update the indicator function (z)
-        z = estimateIndicatorFunctionWithGain_ICM_V(slice, gamma, g, beta, K, maxIter);
+        z = estimateIndicatorFunctionWithGain_ICM_V(slice, gamma, g, beta, K, maxZIter);
 
         % Step 2: Update centroids (gamma)
         gamma = updateCentroids(z, gVec, sliceVec);
@@ -623,24 +689,6 @@ function [slice, z, g] = unsupervisedClassification(vol, sliceNumber, slice, ...
         fprintf('Updated centroids (gamma): ');
         disp(gamma);
     end
-end
-
-function [slice, segmentation, g] = unsupervisedClassificationKMeans(vol, sliceNumber, K, order)
-    % Extract the slice
-    slice = double(vol(:, :, sliceNumber));
-
-    % Flatten the slice for clustering
-    [rows, cols] = size(slice);
-    sliceFlat = slice(:);
-
-    % Apply K-means clustering
-    [labels, ~] = kmeans(sliceFlat, K, 'MaxIter', 1000, 'Replicates', 5);
-
-    % Reshape labels back to 2D segmentation
-    segmentation = reshape(labels, rows, cols);
-
-    % Estimate the gain field (optional, for consistency with your requirements)
-    g = estimateGainField(slice, segmentation, K, order);
 end
 
 function [slice, segmentation, g] = unsupervisedClassificationGMM(vol, sliceNumber, K, order)
@@ -760,17 +808,19 @@ function preprocessAndClassify(vol, sliceNumber, K, beta, maxIter, order, tol)
     showProcessedImage(slice, z, K);
 end
 
-function classifyFullImage(vol, sliceNumber, K, beta, maxIter, order, tol)
+function classifyFullImage(vol, sliceNumber, K, beta, maxIter, maxZIter, order, tol)
     % Direct unsupervised classification without preprocessing
-    [slice, z, g] = unsupervisedClassification(vol, sliceNumber, [], ...
-                                            K, beta, maxIter, order, tol);
+    [slice, z, g] = unsupervisedClassificationDirectGain(vol, sliceNumber, [], ...
+                                            K, beta, maxIter, maxZIter, order, tol);
      % Generate segmentation from z
     [~, segmentation] = max(z, [], 2); % Assign each pixel to the class with the highest probability
     segmentation = reshape(segmentation, size(slice)); % Reshape to image size
 
-    % Display results
-    showResults(slice, segmentation, g);
-    %showProcessedImage(slice, z, K);
+    T = otsuThreshold(imhist(mat2gray(slice)));
+    brainMask = imbinarize(mat2gray(slice), T);
+    % Call the function with the brain mask
+    showResults(slice, segmentation, g, brainMask);
+
 end
 
 
@@ -839,13 +889,6 @@ function showResultsWithGain(slice, segmentation, g, brainMask)
     % g - Gain field (2D array).
     % brainMask - Binary mask indicating the brain area.
 
-    % Apply the mask to the gain field
-    maskedGainField = g .* brainMask; % Apply the mask to limit gain field to the brain
-
-    % Normalize the gain field to [0, 1] for visualization
-    if max(maskedGainField(:)) > 0
-        maskedGainField = maskedGainField / max(maskedGainField(:)); % Normalize to [0, 1]
-    end
 
     % Normalize the slice for grayscale visualization
     normalizedSlice = mat2gray(slice); % Ensure the slice is within [0, 1]
@@ -868,6 +911,14 @@ function showResultsWithGain(slice, segmentation, g, brainMask)
     colorbar;
 
     % Display the masked gain field
+     % Apply the mask to the gain field
+    maskedGainField = g .* brainMask; % Apply the mask to limit gain field to the brain
+
+    % Normalize the gain field to [0, 1] for visualization
+    if max(maskedGainField(:)) > 0
+        maskedGainField = maskedGainField / max(maskedGainField(:)); % Normalize to [0, 1]
+    end
+
     subplot(1, 3, 3);
     imshow(maskedGainField, []);
     colormap('hot'); % Use a "hot" colormap for gain field
@@ -878,46 +929,32 @@ function showResultsWithGain(slice, segmentation, g, brainMask)
     set(gcf, 'Position', get(0, 'Screensize')); % Fullscreen layout
 end
 
-function showResults(slice, segmentation, g)
-    figure('Color', 'w', 'Units', 'normalized', 'Position', [0.2, 0.2, 0.6, 0.4]);
-
-    % Original slice
-    subplot(1, 3, 1);
-    imshow(slice, []);
-    colormap('gray');
-    title('Original Slice');
-    colorbar;
-
-    % Segmentation
-    subplot(1, 3, 2);
-    imshow(segmentation, []);
-    colormap('jet');
-    title('Tissue Segmentation');
-    colorbar;
-
-    % Gain field
-    subplot(1, 3, 3);
-    imshow(g, []);
-    colormap('hot');
-    title('Gain Field');
-    colorbar;
-end
-
-function showResults2(slice, segmentation, g, K)
-    % Display the original slice, tissue segmentation, and gain field.
+function showResults(slice, segmentation, g, brainMask)
+    % Display the original slice, tissue segmentation, and gain field (masked to the brain area).
     %
     % Inputs:
     % slice         - Original 2D slice (image).
     % segmentation  - Segmented image (2D array).
     % g             - Gain field (2D array).
-    % K             - Number of tissue classes.
+    % brainMask     - Binary mask of the brain area.
+
+    % Mask the gain field to show only brain areas
+    maskedGainField = g .* brainMask;
+
+    % Normalize the gain field for better visualization
+    if max(maskedGainField(:)) > 0
+        maskedGainField = maskedGainField / max(maskedGainField(:)); % Normalize to [0, 1]
+    end
+
+    % Normalize the slice for grayscale visualization
+    normalizedSlice = mat2gray(slice); % Ensure the slice is within [0, 1]
 
     % Create the visualization layout
     figure('Color', 'w', 'Units', 'normalized', 'Position', [0.2, 0.2, 0.8, 0.5]);
 
     % Display the original slice
     subplot(1, 3, 1);
-    imshow(slice, []);
+    imshow(normalizedSlice, []);
     colormap('gray'); % Grayscale for original slice
     title('Original Slice', 'FontSize', 14, 'FontWeight', 'bold');
     colorbar; % Add colorbar for intensity values
@@ -925,21 +962,17 @@ function showResults2(slice, segmentation, g, K)
     % Display tissue segmentation
     subplot(1, 3, 2);
     imshow(segmentation, []);
-    colormap('jet');
-    title('Tissue Segmentation');
+    colormap('jet'); % Use jet colormap for segmentation
+    title('Tissue Segmentation', 'FontSize', 14, 'FontWeight', 'bold');
     colorbar;
 
-    % Display the gain field
+    % Display the masked gain field
     subplot(1, 3, 3);
-    % Normalize gain field to enhance contrast
-    gNorm = mat2gray(g); % Normalize to [0, 1]
-    imshow(gNorm, []);
+    imshow(maskedGainField, []);
     colormap('parula'); % Perceptually uniform colormap
-    title('Gain Field', 'FontSize', 14, 'FontWeight', 'bold');
+    title('Gain Field (Brain Area Only)', 'FontSize', 14, 'FontWeight', 'bold');
     colorbar; % Add colorbar for the gain field
-
-    % Adjust the layout for better visualization
-    set(gcf, 'Position', get(0, 'Screensize')); % Fullscreen layout
 end
+
 
 
