@@ -9,12 +9,13 @@ vol = flipdim(permute (vol, [2 1 3]) ,1);
 volumeViewer(vol)
 %% Look at Slice 102 and Slice 119 ---
 sliceNumber = 143;
-% Display slice 102 using imshow
+% Display slice 143 using imshow
 figure;
 imshow(vol(:,:,sliceNumber), []);
 title('Slice 143');
 hold off;
 %%
+sliceNumber = 143;
 slice = vol(:,:,sliceNumber);
 h = imhist(slice); % Compute histogram
 T = minimumErrorThreshold(h);
@@ -22,13 +23,8 @@ binaryImage = slice > T;
 disp(['Optimal Threshold: ', num2str(T)]);
 showPreprocessingImages(slice, binaryImage, T)
 
-% Normalize the slice to the range [0, 1] if it contains floating-point values
-if ~isa(slice, 'uint8') && ~isa(slice, 'uint16') 
-    covslice = mat2gray(slice); % Normalize to [0, 1]
-end
-
 % Compute the histogram
-h= imhist(covslice);
+h= imhist(mat2gray(slice));
 % Compute the normalized threshold
 T_normalized = T / (length(h) - 1); % Normalize raw threshold to [0, 1]
 
@@ -36,15 +32,11 @@ eta = computeAbsoluteGoodness(h, T_normalized); % Compute absolute goodness
 disp(['Absolute Goodness (η): ', num2str(eta)]);
 
 %%
+sliceNumber = 143;
 slice = vol(:,:,sliceNumber); % Extract the specific slice
 
-% Normalize the slice to the range [0, 1] if it contains floating-point values
-if ~isa(slice, 'uint8') && ~isa(slice, 'uint16') % Check if the image is not already in integer format
-    covslice = mat2gray(slice); % Normalize to [0, 1]
-end
-
 % Compute the histogram
-[counts, x] = imhist(covslice);
+[counts, x] = imhist(mat2gray(slice));
 
 % Plot the histogram
 figure;
@@ -53,41 +45,14 @@ xlabel('Intensity Value');
 ylabel('Pixel Count');
 title('Histogram of Slice');
 grid on; 
-
 %%
 % Assume 'vol' is your 3D volume and 'sliceNumber' is the slice index
 slice = vol(:,:,sliceNumber); % Extract the specific slice
-
-% Normalize the slice to the range [0, 1] if it contains floating-point values
-if ~isa(slice, 'uint8') && ~isa(slice, 'uint16') 
-    covslice = mat2gray(slice); % Normalize to [0, 1]
-end
-
-% Compute the histogram
-h= imhist(covslice);
-
-T = otsuthresh(h);
-eta = computeAbsoluteGoodness(h, T); % Compute absolute goodness
-disp(['Absolute Goodness (η): ', num2str(eta)]);
-BW = imbinarize(covslice,T);
-showPreprocessingImages(slice, BW, T);
-
-%%
-% Assume 'vol' is your 3D volume and 'sliceNumber' is the slice index
-slice = vol(:,:,sliceNumber); % Extract the specific slice
-
-% Normalize the slice to the range [0, 1] if it contains floating-point values
-if ~isa(slice, 'uint8') && ~isa(slice, 'uint16') 
-    covslice = mat2gray(slice); % Normalize to [0, 1]
-end
-
-% Compute the histogram
-h= imhist(covslice);
-
+h = imhist(mat2gray(slice));
 T = otsuThreshold(h);
 eta = computeAbsoluteGoodness(h, T); % Compute absolute goodness
 disp(['Absolute Goodness (η): ', num2str(eta)]);
-BW = imbinarize(covslice,T);
+BW = imbinarize(mat2gray(slice), T);
 showPreprocessingImages(slice, BW, T);
 %% Using GMM
 [slice, segmentation, g] = unsupervisedClassificationGMM(vol, sliceNumber, 5, 2);
@@ -100,22 +65,10 @@ showResults(slice, segmentation, g, brainMask);
 
 %%
 % Extract the slice
+sliceNumber = 143;
 slice = vol(:,:,sliceNumber); % Extract the specific slice
-
-% Normalize the slice to the range [0, 1] if it contains floating-point values
-if ~isa(slice, 'uint8') && ~isa(slice, 'uint16') 
-    covslice = mat2gray(slice); % Normalize to [0, 1]
-else
-    covslice = slice; % Use as is for integer images
-end
-
-% Compute the histogram
-h = imhist(covslice);
-
-% Apply Otsu's method for binary masking
-T = otsuThreshold(h);
-BW = imbinarize(covslice, T);
-
+T = otsuThreshold(imhist(mat2gray(slice)));
+BW = imbinarize(mat2gray(slice), T);
 
 % Use BW as a mask in the unsupervisedClassificationGMM function
 [slice, segmentation, g] = unsupervisedClassificationGMMwithBW(slice, BW, K, order);
@@ -123,8 +76,17 @@ BW = imbinarize(covslice, T);
 % Visualize the results
 showResultsWithGain(slice, segmentation, g, BW);
 
+%%
+% Parameters
+K = 5; % Number of tissue classes
+beta = 0.2; % Smoothness weight
+maxIter = 10; % Maximum number of iterations
+maxZIter = 10;
+order = 2; % Polynomial order for the gain field
+tol = 1e-3; % Convergence tolerance
 
-
+% Direct unsupervised classification
+preprocessAndClassify(vol, 143, K, beta, maxIter, maxZIter, order, tol);
 %%
 % Parameters
 K = 5; % Number of tissue classes
@@ -788,24 +750,38 @@ end
 
 
 
+
 %%
-function preprocessAndClassify(vol, sliceNumber, K, beta, maxIter, order, tol)
+function preprocessAndClassify(vol, sliceNumber, K, beta,...
+    maxIter, maxZIter, order, tol)
     % Preprocess the slice using binary classification (Otsu's method)
     slice = vol(:, :, sliceNumber);
-    sliceNormalized = mat2gray(slice); % Normalize to [0, 1]
     
     % Apply Otsu's thresholding
-    h = imhist(sliceNormalized);
-    otsuThreshold = otsuthresh(h); % MATLAB Otsu implementation
-    BW = sliceNormalized > otsuThreshold; % Binary mask
-    
+    T = otsuThreshold(imhist(mat2gray(slice)));
+    BW = imbinarize(mat2gray(slice), T);
+    slice = double(slice);
+    maskedSlice = slice .* BW;
+
+    % Reshape the slice and binary mask to vectors for processing
+    sliceFlat = maskedSlice(:);
+    BWFlat = BW(:);
+
+    % Keep only foreground pixels for GMM fitting
+    foregroundPixels = sliceFlat(BWFlat > 0);
+
     % Apply unsupervised classification on the foreground only
-    sliceForeground = double(slice) .* BW; % Retain only foreground pixels
-    [slice, z] = unsupervisedClassification([], -1,sliceForeground, ...
-                                            K, beta, maxIter, order, tol);
+    [slice, z, g] = unsupervisedClassificationDirectGain([], -1,foregroundPixels, ...
+                                            K, beta, maxIter, maxZIter, ...
+                                            order, tol);
     
-    % Display results
-    showProcessedImage(slice, z, K);
+     % Generate segmentation from z
+    [~, segmentation] = max(z, [], 2); % Assign each pixel to the class with the highest probability
+    segmentation = reshape(segmentation, size(slice)); % Reshape to image size
+ 
+    % Display result
+    showResultsWithGain(slice, segmentation, g, BW);
+
 end
 
 function classifyFullImage(vol, sliceNumber, K, beta, maxIter, maxZIter, order, tol)
@@ -817,9 +793,10 @@ function classifyFullImage(vol, sliceNumber, K, beta, maxIter, maxZIter, order, 
     segmentation = reshape(segmentation, size(slice)); % Reshape to image size
 
     T = otsuThreshold(imhist(mat2gray(slice)));
-    brainMask = imbinarize(mat2gray(slice), T);
-    % Call the function with the brain mask
-    showResults(slice, segmentation, g, brainMask);
+    BW = imbinarize(mat2gray(slice), T);
+    % Display result
+    %showResults(slice, segmentation, g, brainMask);
+    showResultsWithGain(slice, segmentation, g, BW);
 
 end
 

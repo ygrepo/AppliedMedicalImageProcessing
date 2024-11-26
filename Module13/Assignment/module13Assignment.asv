@@ -130,41 +130,12 @@ showResultsWithGain(slice, segmentation, g, BW);
 K = 5; % Number of tissue classes
 beta = 0.2; % Smoothness weight
 maxIter = 10; % Maximum number of iterations
-maxZIter = 15;
+maxZIter = 10;
 order = 2; % Polynomial order for the gain field
 tol = 1e-3; % Convergence tolerance
 
 % Direct unsupervised classification
 classifyFullImage(vol, 143, K, beta, maxIter, maxZIter, order, tol);
-
-
-%%
-K = 5; % Number of tissue classes
-beta = 0.5; % Smoothness weight
-maxIter = 10; % Maximum number of iterations
-order = 2; % Polynomial order for the gain field
-tol = 1e-3; % Convergence tolerance
-[slice,z] = unsupervisedClassification(vol,sliceNumber,...
-    K, beta, maxIter, order, tol);
-
-showProcessedImage(slice, z, K)
-%%
-% Parameters
-K = 5; % Number of tissue classes
-beta = 0.5; % Smoothness weight
-maxIter = 10; % Maximum number of iterations
-order = 2; % Polynomial order for the gain field
-tol = 1e-3; % Convergence tolerance
-
-% Perform unsupervised classification
-[slice, z, g] = unsupervisedClassification(vol, sliceNumber, [], ...
-    K, beta, maxIter, order, tol);
-
-% Visualize the results
-% Extract the slice and binary brain mask
-brainMask = BW; % Binary mask (1 for brain area, 0 for background)
-%%
-showResultsWithGain(slice, z, g, brainMask);
 
 %%
 function [mu0, mu1, N] = makeMeanTables(h, K)
@@ -529,11 +500,11 @@ function gamma = updateCentroids(z, g, y)
     gamma = numerator ./ denominator; % (1 x K)
 
     % Enforce non-negativity
-    %gamma = max(gamma, 0); % Gamma should never be negative
+    gamma = max(gamma, 0); % Gamma should never be negative
 end
 
 function [slice, z, g] = unsupervisedClassificationDirectGain(vol, sliceNumber, slice, ...
-    K, beta, maxIter, order, tol)
+    K, beta, maxIter, maxZIter, order, tol)
 % Perform unsupervised tissue classification with direct gain field estimation.
 % Inputs:
 %   vol        - 3D volume of slices (only needed if sliceNumber >= 0)
@@ -578,7 +549,7 @@ function [slice, z, g] = unsupervisedClassificationDirectGain(vol, sliceNumber, 
         fprintf('Iteration %d/%d\n', iter, maxIter);
 
         % Step 1: Update the indicator function (z)
-        z = estimateIndicatorFunctionWithGain_ICM_V(slice, gamma, g, beta, K, maxIter);
+        z = estimateIndicatorFunctionWithGain_ICM_V(slice, gamma, g, beta, K, maxZIter);
 
         % Step 2: Update centroids (gamma)
         gamma = updateCentroids(z, gVec, sliceVec);
@@ -586,6 +557,7 @@ function [slice, z, g] = unsupervisedClassificationDirectGain(vol, sliceNumber, 
         % Step 3: Directly Estimate the Gain Field (g)
         % Solve for the polynomial coefficients f using least squares
         regParam = 1e-3; % Regularization parameter to avoid ill-conditioning
+        %f = (P' * P) \ (P' * sliceVec);
         f = (P' * P + regParam * eye(size(P, 2))) \ (P' * sliceVec);
 
         % Recompute the gain field g from the polynomial coefficients
@@ -625,7 +597,7 @@ function [slice, z, g] = unsupervisedClassificationDirectGain(vol, sliceNumber, 
     end
 end
 
-function [slice, z, g] = unsupervisedClassification2(vol, sliceNumber, slice, ...
+function [slice, z, g] = unsupervisedClassification(vol, sliceNumber, slice, ...
     K, beta, maxIter, maxZIter, order, tol)
 % Perform unsupervised tissue classification with gain field estimation
 % Inputs:
@@ -816,29 +788,43 @@ end
 
 
 
+
 %%
-function preprocessAndClassify(vol, sliceNumber, K, beta, maxIter, order, tol)
+function preprocessAndClassify(vol, sliceNumber, K, beta,...
+    maxIter, maxZIter, order, tol)
     % Preprocess the slice using binary classification (Otsu's method)
     slice = vol(:, :, sliceNumber);
-    sliceNormalized = mat2gray(slice); % Normalize to [0, 1]
     
     % Apply Otsu's thresholding
-    h = imhist(sliceNormalized);
-    otsuThreshold = otsuthresh(h); % MATLAB Otsu implementation
-    BW = sliceNormalized > otsuThreshold; % Binary mask
-    
+    T = otsuThreshold(imhist(mat2gray(slice)));
+    brainMask = imbinarize(mat2gray(slice), T);
+    slice = double(slice);
+    maskedSlice = slice .* BW;
+
+    % Reshape the slice and binary mask to vectors for processing
+    sliceFlat = maskedSlice(:);
+    BWFlat = BW(:);
+
+    % Keep only foreground pixels for GMM fitting
+    foregroundPixels = sliceFlat(BWFlat > 0);
+
     % Apply unsupervised classification on the foreground only
-    sliceForeground = double(slice) .* BW; % Retain only foreground pixels
-    [slice, z] = unsupervisedClassification([], -1,sliceForeground, ...
-                                            K, beta, maxIter, order, tol);
+    [slice, z] = unsupervisedClassificationDirectGain([], -1,foregroundPixels, ...
+                                            K, beta, maxIter, maxZIter, ...
+                                            order, tol);
     
-    % Display results
+ 
+    % Call the function with the brain mask
+    showResults(slice, segmentation, g, brainMask);
+    showResultsWithGain(slice, segmentation, g, BW);
+
+
     showProcessedImage(slice, z, K);
 end
 
 function classifyFullImage(vol, sliceNumber, K, beta, maxIter, maxZIter, order, tol)
     % Direct unsupervised classification without preprocessing
-    [slice, z, g] = unsupervisedClassification(vol, sliceNumber, [], ...
+    [slice, z, g] = unsupervisedClassificationDirectGain(vol, sliceNumber, [], ...
                                             K, beta, maxIter, maxZIter, order, tol);
      % Generate segmentation from z
     [~, segmentation] = max(z, [], 2); % Assign each pixel to the class with the highest probability
@@ -847,7 +833,8 @@ function classifyFullImage(vol, sliceNumber, K, beta, maxIter, maxZIter, order, 
     T = otsuThreshold(imhist(mat2gray(slice)));
     brainMask = imbinarize(mat2gray(slice), T);
     % Call the function with the brain mask
-    showResults(slice, segmentation, g, brainMask);
+    %showResults(slice, segmentation, g, brainMask);
+    showResultsWithGain(slice, segmentation, g, BW);
 
 end
 
