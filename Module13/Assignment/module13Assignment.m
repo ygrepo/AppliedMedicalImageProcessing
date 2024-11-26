@@ -752,16 +752,16 @@ end
 
 
 %%
-function preprocessAndClassify(vol, sliceNumber, K, beta,...
+function preprocessAndClassify(vol, sliceNumber, K, beta, ...
     maxIter, maxZIter, order, tol)
     % Preprocess the slice using binary classification (Otsu's method)
     slice = vol(:, :, sliceNumber);
     
     % Apply Otsu's thresholding
     T = otsuThreshold(imhist(mat2gray(slice)));
-    BW = imbinarize(mat2gray(slice), T);
+    BW = imbinarize(mat2gray(slice), T); % Binary mask for foreground
     slice = double(slice);
-    maskedSlice = slice .* BW;
+    maskedSlice = slice .* BW; % Masked slice for processing
 
     % Reshape the slice and binary mask to vectors for processing
     sliceFlat = maskedSlice(:);
@@ -771,18 +771,26 @@ function preprocessAndClassify(vol, sliceNumber, K, beta,...
     foregroundPixels = sliceFlat(BWFlat > 0);
 
     % Apply unsupervised classification on the foreground only
-    [slice, z, g] = unsupervisedClassificationDirectGain([], -1,foregroundPixels, ...
-                                            K, beta, maxIter, maxZIter, ...
-                                            order, tol);
-    
-     % Generate segmentation from z
-    [~, segmentation] = max(z, [], 2); % Assign each pixel to the class with the highest probability
-    segmentation = reshape(segmentation, size(slice)); % Reshape to image size
- 
-    % Display result
-    showResultsWithGain(slice, segmentation, g, BW);
+    [~, zForeground, gForeground] = unsupervisedClassificationDirectGain([], ...
+        -1, foregroundPixels, K, beta, maxIter, maxZIter, order, tol);
 
+    % Map the foreground results back to the original image dimensions
+    z = zeros(length(BWFlat), K);
+    g = zeros(length(BWFlat), 1);
+
+    z(BWFlat > 0, :) = zForeground; % Assign foreground classifications
+    g(BWFlat > 0) = gForeground; % Assign foreground gain field
+
+    % Reshape z and g to match the original image dimensions
+    [rows, cols] = size(slice);
+    segmentation = reshape(max(z, [], 2), rows, cols); % Tissue segmentation
+    g = reshape(g, rows, cols); % Gain field
+
+    % Display the results
+    showResultsWithGain(slice, segmentation, g, BW);
 end
+
+
 
 function classifyFullImage(vol, sliceNumber, K, beta, maxIter, maxZIter, order, tol)
     % Direct unsupervised classification without preprocessing
@@ -820,42 +828,6 @@ title('Binary Image', 'FontSize', fontSize,'FontWeight','bold');
 hold off
 end
 
-function showProcessedImage(Img, z, K)
-    % Img: Original image
-    % z: Indicator function (rows*cols x K matrix)
-    % K: Number of tissue classes
-    
-    % Class labels for segmentation
-    classLabels = {'Background', 'White Matter', 'Gray Matter', 'CSF', 'No-Brain Tissue'};
-    
-    % Generate segmentation from z
-    [~, segmentation] = max(z, [], 2); % Assign each pixel to the class with the highest probability
-    segmentation = reshape(segmentation, size(Img)); % Reshape to image size
-
-    % Define colormap for segmentation visualization
-    cmap = lines(K); % Generate unique colors for each class
-    
-    % Create tiled layout
-    figure;
-    t = tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
-    
-    % Add a title for the entire figure
-    txt = sprintf('Slice 143 original (left), and segmented (right)');
-    title(t, txt, 'FontSize', 24, 'FontWeight', 'bold');
-    fontSize = 14;
-
-    % Display original image
-    nexttile;
-    imshow(Img, []); % Display original image
-    title('Original Image', 'FontSize', fontSize, 'FontWeight', 'bold');
-    
-    % Display segmented image
-    nexttile;
-    imshow(segmentation, []); % Display segmentation
-    colormap(cmap); % Apply colormap
-    colorbar('Ticks', 1:K, 'TickLabels', classLabels); % Add legend for classes
-    title('Segmented Image', 'FontSize', fontSize, 'FontWeight', 'bold');
-end
 
 function showResultsWithGain(slice, segmentation, g, brainMask)
     % Display the original slice, tissue segmentation, and gain field limited to the brain area.
