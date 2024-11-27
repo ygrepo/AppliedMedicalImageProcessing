@@ -68,7 +68,7 @@ tol = 1e-3; % Convergence tolerance
 % Direct unsupervised classification
 classifyFullImage(vol, 143, K, beta, maxIter, maxZIter, order, tol);
 
-%% Direct tissue classification using GMM ----
+%% Direct tissue classificatio using GMM ----
 sliceNumber = 143;
 [slice, segmentation, g] = unsupervisedClassificationGMM(vol, sliceNumber, 5, 2);
 % Otsu-based preprocessing to create brainMask
@@ -76,19 +76,20 @@ T = otsuThreshold(imhist(mat2gray(slice)));
 BW = imbinarize(mat2gray(slice), T);
 % Visualize the results
 showResultsWithGain(slice, segmentation, g, BW, "Direct Tissue Classification using GMM");
-%% Preprocessing followed by tissue classification using GMM ----
+%%
+% Extract the slice
 sliceNumber = 143;
 slice = vol(:,:,sliceNumber); % Extract the specific slice
 T = otsuThreshold(imhist(mat2gray(slice)));
 BW = imbinarize(mat2gray(slice), T);
 
 % Use BW as a mask in the unsupervisedClassificationGMM function
-K = 5;
-order = 2;
 [slice, segmentation, g] = unsupervisedClassificationGMMwithBW(slice, BW, K, order);
 
 % Visualize the results
-showResultsWithGain(slice, segmentation, g, BW, "Otsu's + Tissue Classification using GMM");
+showResultsWithGain(slice, segmentation, g, BW);
+
+
 
 
 %%
@@ -551,19 +552,6 @@ function [slice, z, g] = unsupervisedClassification(vol, sliceNumber, slice, ...
 end
 
 function [slice, segmentation, g] = unsupervisedClassificationGMM(vol, sliceNumber, K, order)
-% Perform unsupervised tissue classification with using Gaussian Mixture Model.
-% Inputs:
-%   vol        - 3D volume of slices (only needed if sliceNumber >= 0)
-%   sliceNumber - Index of the slice to process (-1 if using the provided slice)
-%   slice      - 2D image slice (optional, used if sliceNumber == -1)
-%   K          - Number of tissue classes
-%   order      - Polynomial order for the gain field
-%
-% Outputs:
-%   slice - Original slice.
-%   segmentation - Tissue segmentation (2D array).
-%   g - Estimated gain field (2D array).
-
     % Extract the slice
     slice = double(vol(:, :, sliceNumber));
 
@@ -624,6 +612,8 @@ function [slice, segmentation, g] = unsupervisedClassificationGMMwithBW(slice, B
     g = estimateGainField(slice, segmentation, K, order);
 end
 
+
+
 function g = estimateGainField(slice, segmentation, K, order)
     % Estimate a gain field based on segmentation using polynomial fitting.
     [rows, cols] = size(slice);
@@ -655,6 +645,9 @@ function g = estimateGainField(slice, segmentation, K, order)
     % Normalize the gain field
     g = g ./ max(g(:));
 end
+
+
+
 
 %%
 function preprocessAndClassify(vol, sliceNumber, K, beta, ...
@@ -694,6 +687,8 @@ function preprocessAndClassify(vol, sliceNumber, K, beta, ...
     % Display the results
     showResultsWithGain(slice, segmentation, g, BW, 'Tissue Classification after Otsu Preprocessing');
 end
+
+
 
 function classifyFullImage(vol, sliceNumber, K, beta, maxIter, maxZIter, order, tol)
     % Direct unsupervised classification without preprocessing
@@ -790,3 +785,51 @@ function showResultsWithGain(slice, segmentation, g, brainMask, titleTxt)
     % Adjust the layout for better visualization
     set(gcf, 'Position', get(0, 'Screensize')); % Fullscreen layout
 end
+
+function showResults(slice, segmentation, g, brainMask)
+    % Display the original slice, tissue segmentation, and gain field (masked to the brain area).
+    %
+    % Inputs:
+    % slice         - Original 2D slice (image).
+    % segmentation  - Segmented image (2D array).
+    % g             - Gain field (2D array).
+    % brainMask     - Binary mask of the brain area.
+
+    % Mask the gain field to show only brain areas
+    maskedGainField = g .* brainMask;
+
+    % Normalize the gain field for better visualization
+    if max(maskedGainField(:)) > 0
+        maskedGainField = maskedGainField / max(maskedGainField(:)); % Normalize to [0, 1]
+    end
+
+    % Normalize the slice for grayscale visualization
+    normalizedSlice = mat2gray(slice); % Ensure the slice is within [0, 1]
+
+    % Create the visualization layout
+    figure('Color', 'w', 'Units', 'normalized', 'Position', [0.2, 0.2, 0.8, 0.5]);
+
+    % Display the original slice
+    subplot(1, 3, 1);
+    imshow(normalizedSlice, []);
+    colormap('gray'); % Grayscale for original slice
+    title('Original Slice', 'FontSize', 14, 'FontWeight', 'bold');
+    colorbar; % Add colorbar for intensity values
+
+    % Display tissue segmentation
+    subplot(1, 3, 2);
+    imshow(segmentation, []);
+    colormap('jet'); % Use jet colormap for segmentation
+    title('Tissue Segmentation', 'FontSize', 14, 'FontWeight', 'bold');
+    colorbar;
+
+    % Display the masked gain field
+    subplot(1, 3, 3);
+    imshow(maskedGainField, []);
+    colormap('parula'); % Perceptually uniform colormap
+    title('Gain Field (Brain Area Only)', 'FontSize', 14, 'FontWeight', 'bold');
+    colorbar; % Add colorbar for the gain field
+end
+
+
+
