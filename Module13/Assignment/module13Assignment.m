@@ -3,14 +3,14 @@ clearvars
 clc
 vol = niftiread('data/sub-13_T1w.nii.gz');
 vol = flipdim(permute (vol, [2 1 3]) ,1);
-%% Look at Slice 143 ---
+% Look at Slice 143 ---
 sliceNumber = 143;
 % Display slice 143 using imshow
 figure;
 imshow(vol(:,:,sliceNumber), []);
 title('Slice 143');
 hold off;
-%%
+
 sliceNumber = 143;
 slice = vol(:,:,sliceNumber); % Extract the specific slice
 
@@ -24,7 +24,7 @@ xlabel('Intensity Value', 'FontSize', 24, 'FontWeight', 'bold')
 ylabel('Pixel Count', 'FontSize', 24, 'FontWeight', 'bold')
 title(['Histogram of Slice ' num2str(sliceNumber)], 'FontSize', 24, 'FontWeight', 'bold')
 grid on; 
-%%
+
 clc
 slice = vol(:,:,sliceNumber); % Extract the specific slice
 h = imhist(mat2gray(slice));
@@ -47,7 +47,7 @@ disp(['Min. Error Thresholding - Absolute Goodness (η):', num2str(eta)]);
 
 showPreprocessingImages(slice, BW1, T1, BW2, T2)
 
-%% Binaryze the image into background and foreground and segmentation ---- 
+% Binaryze the image into background and foreground and segmentation ---- 
 % Parameters
 K = 5; % Number of tissue classes
 beta = 0.2; % Smoothness weight
@@ -56,7 +56,7 @@ maxZIter = 10;
 order = 2; % Polynomial order for the gain field
 tol = 1e-3; % Convergence tolerance
 preprocessAndClassify(vol, 143, K, beta, maxIter, maxZIter, order, tol);
-%% Direct segmentation ---- 
+% Direct segmentation ---- 
 % Parameters
 K = 5; % Number of tissue classes
 beta = 0.2; % Smoothness weight
@@ -68,7 +68,7 @@ tol = 1e-3; % Convergence tolerance
 % Direct unsupervised classification
 classifyFullImage(vol, 143, K, beta, maxIter, maxZIter, order, tol);
 
-%% Direct tissue classification using GMM ----
+% Direct tissue classification using GMM ----
 sliceNumber = 143;
 [slice, segmentation, g] = unsupervisedClassificationGMM(vol, sliceNumber, 5, 2);
 % Otsu-based preprocessing to create brainMask
@@ -76,7 +76,8 @@ T = otsuThreshold(imhist(mat2gray(slice)));
 BW = imbinarize(mat2gray(slice), T);
 % Visualize the results
 showResultsWithGain(slice, segmentation, g, BW, "Direct Tissue Classification using GMM");
-%% Preprocessing followed by tissue classification using GMM ----
+
+% Preprocessing followed by tissue classification using GMM ----
 sliceNumber = 143;
 slice = vol(:,:,sliceNumber); % Extract the specific slice
 T = otsuThreshold(imhist(mat2gray(slice)));
