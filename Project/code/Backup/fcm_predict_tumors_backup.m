@@ -243,7 +243,8 @@ result = evaluateTestSetSlice(testImagePaths, testMaskPaths, detectedMasks, slic
 % Display results
 disp(result);
 
-%% Histogram Matching with plots ----
+%%
+% Histogram Matching
 % Specify the path to the known reference image and mask
 referenceImagePath = fullfile(dataDir, 'vs_gk_5_t1_3D_aligned_volume.nii');
 referenceMaskPath = fullfile(dataDir, 'vs_gk_5_t1_aligned_vol_mask.nii');
@@ -350,7 +351,8 @@ for i = 1:numel(testImagePaths)
     hold off;
 end
 
-%% Histogram Matching without plots ----
+%%
+% Histogram Matching
 % Specify the path to the known reference image and mask
 referenceImagePath = fullfile(dataDir, 'vs_gk_5_t1_3D_aligned_volume.nii');
 referenceMaskPath = fullfile(dataDir, 'vs_gk_5_t1_aligned_vol_mask.nii');
